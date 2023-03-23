@@ -495,6 +495,25 @@ where
 
     Ok((self.zi_primary.clone(), self.zi_secondary.clone()))
   }
+
+  /// Finding all Z to prepare for the folding process
+  pub fn eval_z(
+    number_steps: usize,
+    c_primary: C1,
+    c_secondary: C2,
+    z0_primary: Vec<G1::Scalar>,
+    z0_secondary: Vec<G2::Scalar>,
+  ) -> (Vec<Vec<G1::Scalar>>, Vec<Vec<G2::Scalar>>) {
+    let mut zi_primary = Vec::<Vec<G1::Scalar>>::new();
+    let mut zi_secondary = Vec::<Vec<G2::Scalar>>::new();
+    zi_primary.push(z0_primary);
+    zi_secondary.push(z0_secondary);
+    for i in 1usize..number_steps {
+      zi_primary.push(c_primary.output(&zi_primary[i - 1]));
+      zi_secondary.push(c_secondary.output(&zi_secondary[i - 1]));
+    }
+    (zi_primary, zi_secondary)
+  }
 }
 
 /// A type that holds the prover key for `CompressedSNARK`
@@ -844,6 +863,31 @@ mod tests {
     fn output(&self, z: &[F]) -> Vec<F> {
       vec![z[0] * z[0] * z[0] + z[0] + F::from(5u64)]
     }
+  }
+
+  #[test]
+  fn test_eval_z() {
+    let circuit_primary = TrivialTestCircuit::<<G1 as Group>::Scalar>::default();
+    let circuit_secondary = CubicCircuit::<<G2 as Group>::Scalar>::default();
+
+    let result = RecursiveSNARK::<
+      G1,
+      G2,
+      TrivialTestCircuit<<G1 as Group>::Scalar>,
+      CubicCircuit<<G2 as Group>::Scalar>,
+    >::eval_z(
+      4,
+      circuit_primary,
+      circuit_secondary,
+      vec![<G1 as Group>::Scalar::zero()],
+      vec![<G2 as Group>::Scalar::one()],
+    );
+
+    let (primary, secondary) = result;
+
+    // Check the correctness of evaluated Z
+    assert!(primary[primary.len() - 1] == primary[0]);
+    assert!(secondary[secondary.len() - 1][0].eq(&<G2 as Group>::Scalar::from(0x2aaaaa3)));
   }
 
   #[test]
