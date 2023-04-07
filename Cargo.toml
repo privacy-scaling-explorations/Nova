@@ -50,6 +50,10 @@ harness = false
 name = "compressed-snark"
 harness = false
 
+[[bench]]
+name = "parrarel-snark"
+harness = false
+
 [features]
 default = []
 cuda = ["neptune/cuda", "neptune/pasta", "neptune/arity24"]
