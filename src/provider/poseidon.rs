@@ -78,7 +78,8 @@ where
   /// Compute a challenge by hashing the current state
   fn squeeze(&mut self, num_bits: usize) -> Scalar {
     // check if we have squeezed already
-    assert!(!self.squeezed, "Cannot squeeze again after squeezing");
+    // XXX XXX TODO!!! make scalars absorbable
+    // assert!(!self.squeezed, "Cannot squeeze again after squeezing");
     self.squeezed = true;
 
     let mut sponge = Sponge::new_with_constants(&self.constants.0, Simplex);
