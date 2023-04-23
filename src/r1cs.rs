@@ -303,6 +303,124 @@ impl<G: Group> R1CSShape<G> {
     Ok((T, comm_T))
   }
 
+  /// A method to compute the commitments to the cross-terms `T` when we do 3-to-1 folding
+  ///
+  /// With 3-to-1 folding the error term actually becomes:
+  /// E <- E_1 + r_1^2 E_2 + r_2^2 E_3
+  ///      + r_1 (A z_1 o B z_2 + A z_2 o B z_1 - u_1 C z_2 - u_2 C z_1)
+  ///      + r_2 (A z_1 o B z_3 + A z_3 o B z_1 - u_1 C z_3 - u_3 C z_1)
+  ///      + (r_1 * r_2) (A z_2 o B z_3 + A z_3 o B z_2 - u_2 C z_3 - u_3 C z_2)
+  /// The three terms inside the big parentheses are our cross-terms.
+  pub fn commit_T_three(
+    &self,
+    ck: &CommitmentKey<G>,
+    U1: &RelaxedR1CSInstance<G>,
+    W1: &RelaxedR1CSWitness<G>,
+    U2: &R1CSInstance<G>,
+    W2: &R1CSWitness<G>,
+    U3: &R1CSInstance<G>,
+    W3: &R1CSWitness<G>,
+  ) -> Result<(Vec<G::Scalar>, Commitment<G>, Vec<G::Scalar>, Commitment<G>, Vec<G::Scalar>, Commitment<G>), NovaError> {
+    let (AZ_1, BZ_1, CZ_1) = {
+      let Z1 = concat(vec![W1.W.clone(), vec![U1.u], U1.X.clone()]);
+      self.multiply_vec(&Z1)?
+    };
+
+    let (AZ_2, BZ_2, CZ_2) = {
+      let Z2 = concat(vec![W2.W.clone(), vec![G::Scalar::one()], U2.X.clone()]);
+      self.multiply_vec(&Z2)?
+    };
+
+    let (AZ_3, BZ_3, CZ_3) = {
+      let Z3 = concat(vec![W3.W.clone(), vec![G::Scalar::one()], U3.X.clone()]);
+      self.multiply_vec(&Z3)?
+    };
+
+
+    let AZ_1_circ_BZ_2 = (0..AZ_1.len())
+      .into_par_iter()
+      .map(|i| AZ_1[i] * BZ_2[i])
+      .collect::<Vec<G::Scalar>>();
+    let AZ_2_circ_BZ_1 = (0..AZ_2.len())
+      .into_par_iter()
+      .map(|i| AZ_2[i] * BZ_1[i])
+      .collect::<Vec<G::Scalar>>();
+    let u_1_cdot_CZ_2 = (0..CZ_2.len())
+      .into_par_iter()
+      .map(|i| U1.u * CZ_2[i])
+      .collect::<Vec<G::Scalar>>();
+    let u_2_cdot_CZ_1 = (0..CZ_1.len())
+      .into_par_iter()
+      .map(|i| CZ_1[i])
+      .collect::<Vec<G::Scalar>>();
+
+    let T_1 = AZ_1_circ_BZ_2
+      .par_iter()
+      .zip(&AZ_2_circ_BZ_1)
+      .zip(&u_1_cdot_CZ_2)
+      .zip(&u_2_cdot_CZ_1)
+      .map(|(((a, b), c), d)| *a + *b - *c - *d)
+      .collect::<Vec<G::Scalar>>();
+
+    let comm_T_1 = CE::<G>::commit(ck, &T_1);
+
+    let AZ_1_circ_BZ_3 = (0..AZ_1.len())
+      .into_par_iter()
+      .map(|i| AZ_1[i] * BZ_3[i])
+      .collect::<Vec<G::Scalar>>();
+    let AZ_3_circ_BZ_1 = (0..AZ_3.len())
+      .into_par_iter()
+      .map(|i| AZ_3[i] * BZ_1[i])
+      .collect::<Vec<G::Scalar>>();
+    let u_1_cdot_CZ_3 = (0..CZ_3.len())
+      .into_par_iter()
+      .map(|i| U1.u * CZ_3[i])
+      .collect::<Vec<G::Scalar>>();
+    let u_3_cdot_CZ_1 = (0..CZ_1.len())
+      .into_par_iter()
+      .map(|i| CZ_1[i])
+      .collect::<Vec<G::Scalar>>();
+
+    let T_2 = AZ_1_circ_BZ_3
+      .par_iter()
+      .zip(&AZ_3_circ_BZ_1)
+      .zip(&u_1_cdot_CZ_3)
+      .zip(&u_3_cdot_CZ_1)
+      .map(|(((a, b), c), d)| *a + *b - *c - *d)
+      .collect::<Vec<G::Scalar>>();
+
+    let comm_T_2 = CE::<G>::commit(ck, &T_2);
+
+    let AZ_2_circ_BZ_3 = (0..AZ_2.len())
+      .into_par_iter()
+      .map(|i| AZ_2[i] * BZ_3[i])
+      .collect::<Vec<G::Scalar>>();
+    let AZ_3_circ_BZ_2 = (0..AZ_3.len())
+      .into_par_iter()
+      .map(|i| AZ_3[i] * BZ_2[i])
+      .collect::<Vec<G::Scalar>>();
+    let u_2_cdot_CZ_3 = (0..CZ_3.len())
+      .into_par_iter()
+      .map(|i| CZ_3[i])
+      .collect::<Vec<G::Scalar>>();
+    let u_3_cdot_CZ_2 = (0..CZ_2.len())
+      .into_par_iter()
+      .map(|i| CZ_2[i])
+      .collect::<Vec<G::Scalar>>();
+
+    let T_3 = AZ_2_circ_BZ_3
+      .par_iter()
+      .zip(&AZ_3_circ_BZ_2)
+      .zip(&u_2_cdot_CZ_3)
+      .zip(&u_3_cdot_CZ_2)
+      .map(|(((a, b), c), d)| *a + *b - *c - *d)
+      .collect::<Vec<G::Scalar>>();
+
+    let comm_T_3 = CE::<G>::commit(ck, &T_3);
+
+    Ok((T_1, comm_T_1, T_2, comm_T_2, T_3, comm_T_3))
+  }
+
   /// returns the digest of R1CSShape
   pub fn get_digest(&self) -> G::Scalar {
     self.digest
@@ -536,6 +654,36 @@ impl<G: Group> RelaxedR1CSWitness<G> {
     Ok(RelaxedR1CSWitness { W, E })
   }
 
+  /// Folds two R1CSWitnesses into this one
+  pub fn fold_three(
+    &self,
+    W: [&R1CSWitness<G>; 2],
+    T: [&[G::Scalar]; 3],
+    r: [&G::Scalar; 2],
+  ) -> Result<RelaxedR1CSWitness<G>, NovaError> {
+    let (W1, E1) = (&self.W, &self.E);
+    let W2 = &W[0].W;
+    let W3 = &W[1].W;
+
+    if W1.len() != W2.len() {
+      return Err(NovaError::InvalidWitnessLength);
+    }
+    if W2.len() != W3.len() {
+      return Err(NovaError::InvalidWitnessLength);
+    }
+
+    let W = (W1, W2, W3)
+      .into_par_iter()
+      .map(|(a, b, c)| *a + *r[0] * *b + *r[1] * *c)
+      .collect::<Vec<G::Scalar>>();
+    let E = (E1, T[0], T[1], T[2])
+      .into_par_iter()
+      .map(|(a, t_1, t_2, t_3)| *a + *r[0] * *t_1 + *r[1] * *t_2 + (*r[0] * r[1]) * *t_3)
+      .collect::<Vec<G::Scalar>>();
+
+    Ok(RelaxedR1CSWitness { W, E })
+  }
+
   /// Pads the provided witness to the correct length
   pub fn pad(&self, S: &R1CSShape<G>) -> RelaxedR1CSWitness<G> {
     let W = {
@@ -614,7 +762,38 @@ impl<G: Group> RelaxedR1CSInstance<G> {
       u,
     })
   }
+
+
+  /// Folds two RelaxedR1CSInstances into this one
+  pub fn fold_three(
+    &self,
+    U: [&R1CSInstance<G>; 2],
+    comm_T: [&Commitment<G>; 3],
+    r: [&G::Scalar; 2],
+  ) -> Result<RelaxedR1CSInstance<G>, NovaError> {
+    let (X1, u1, comm_W_1, comm_E_1) =
+      (&self.X, &self.u, &self.comm_W.clone(), &self.comm_E.clone());
+    let (X2, comm_W_2) = (&U[0].X, &U[0].comm_W);
+    let (X3, comm_W_3) = (&U[1].X, &U[1].comm_W);
+
+    // weighted sum of X, comm_W, comm_E, and u
+    let X = (X1, X2, X3)
+      .into_par_iter()
+      .map(|(a, b, c)| *a + *r[0] * *b + *r[1] * *c)
+      .collect::<Vec<G::Scalar>>();
+    let comm_W = *comm_W_1 + *comm_W_2 * *r[0] + *comm_W_3 * *r[1];
+    let comm_E = *comm_E_1 + *comm_T[0] * *r[0] + *comm_T[1] * *r[1] + *comm_T[2] * (*r[0] * *r[1]);
+    let u = *u1 + *r[0] + *r[1];
+
+    Ok(RelaxedR1CSInstance {
+      comm_W,
+      comm_E,
+      X,
+      u,
+    })
+  }
 }
+
 
 impl<G: Group> TranscriptReprTrait<G> for RelaxedR1CSInstance<G> {
   fn to_transcript_bytes(&self) -> Vec<u8> {
