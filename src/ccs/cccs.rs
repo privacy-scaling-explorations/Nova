@@ -31,20 +31,43 @@ use super::util::virtual_poly::VirtualPolynomial;
 use super::CCS;
 
 /// A type that holds the shape of a Committed CCS (CCCS) instance
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(bound = "")]
-pub struct CCCS<G: Group> {
-  // Sequence of sparse MLE polynomials in s+s' variables M_MLE1, ..., M_MLEt
-  pub(crate) M_MLE: Vec<MultilinearPolynomial<G::Scalar>>,
-
-  pub(crate) ccs: CCS<G>,
+#[derive(Clone, Debug, PartialEq, Eq /*Serialize, Deserialize*/)]
+//#[serde(bound(deserialize = "'de: 'a"))]
+pub struct CCCSInstance<G: Group> {
+  // The `z` vector used as input for this instance.
+  pub(crate) z: Vec<G::Scalar>,
+  // Commitment to the witness of `z`.
+  pub(crate) w_comm: Commitment<G>,
+  // Commitment to the public inputs of `z`.
+  pub(crate) x_comm: Commitment<G>,
 }
 
-impl<G: Group> CCCS<G> {
+impl<G: Group> CCCSInstance<G> {
+  // Generates a new CCCSInstance given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
+  // Then, given the input vector `z`.
+  pub fn new(
+    ccs: &CCS<G>,
+    ccs_matrix_mle: &Vec<MultilinearPolynomial<G::Scalar>>,
+    z: &[G::Scalar],
+    ck: &CommitmentKey<G>,
+  ) -> Self {
+    let x_comm = CE::<G>::commit(ck, &z[1..ccs.l]);
+    let w_comm = CE::<G>::commit(ck, &z[ccs.l..]);
+
+    Self {
+      M_MLE: ccs_matrix_mle,
+      ccs,
+      ck,
+      z: z.to_vec(),
+      w_comm,
+      x_comm,
+    }
+  }
+
   // Computes q(x) = \sum^q c_i * \prod_{j \in S_i} ( \sum_{y \in {0,1}^s'} M_j(x, y) * z(y) )
   // polynomial over x
-  pub fn compute_q(&self, z: &[G::Scalar]) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
-    let z_mle = dense_vec_to_mle::<G::Scalar>(self.ccs.s_prime, z);
+  pub fn compute_q(&self) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
+    let z_mle = dense_vec_to_mle::<G::Scalar>(self.ccs.s_prime, &self.z);
     if z_mle.get_num_vars() != self.ccs.s_prime {
       // this check if redundant if dense_vec_to_mle is correct
       return Err(NovaError::VpArith);
@@ -82,28 +105,22 @@ impl<G: Group> CCCS<G> {
   /// Computes Q(x) = eq(beta, x) * q(x)
   ///               = eq(beta, x) * \sum^q c_i * \prod_{j \in S_i} ( \sum_{y \in {0,1}^s'} M_j(x, y) * z(y) )
   /// polynomial over x
-  pub fn compute_Q(
-    &self,
-    z: &Vec<G::Scalar>,
-    beta: &[G::Scalar],
-  ) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
-    let q = self.compute_q(z)?;
+  pub fn compute_Q(&self, beta: &[G::Scalar]) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
+    let q = self.compute_q()?;
     q.build_f_hat(beta)
   }
 
-  /// Perform the check of the CCCS instance described at section 4.1
-  pub fn is_sat(
-    &self,
-    ck: &CommitmentKey<G>,
-    z: &[G::Scalar],
-    comm: Commitment<G>,
-  ) -> Result<(), NovaError> {
+  /// Perform the check of the CCCSInstance instance described at section 4.1
+  pub fn is_sat(&self) -> Result<(), NovaError> {
     // check that C is the commitment of w. Notice that this is not verifying a Pedersen
     // opening, but checking that the Commmitment comes from committing to the witness.
-    assert_eq!(comm, CE::<G>::commit(ck, &z[(1 + self.ccs.l)..]));
+    assert_eq!(
+      self.w_comm,
+      CE::<G>::commit(self.ck, &self.z[(1 + self.ccs.l)..])
+    );
 
-    // A CCCS relation is satisfied if the q(x) multivariate polynomial evaluates to zero in the hypercube
-    let q_x = self.compute_q(z).unwrap();
+    // A CCCSInstance relation is satisfied if the q(x) multivariate polynomial evaluates to zero in the hypercube
+    let q_x = self.compute_q().unwrap();
     for x in BooleanHypercube::new(self.ccs.s) {
       if !q_x.evaluate(&x).unwrap().is_zero().unwrap_u8() == 0 {
         return Err(NovaError::UnSat);
@@ -162,7 +179,7 @@ mod tests {
     // ensure CCS is satisfied
     ccs_shape.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
-    // Generate CCCS artifacts
+    // Generate CCCSInstance artifacts
     let cccs_shape = ccs_shape.to_cccs();
 
     let q = cccs_shape.compute_q(&z).unwrap();
