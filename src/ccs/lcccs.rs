@@ -115,7 +115,7 @@ mod tests {
     assert!(lcccs.is_sat(&ck, &witness).is_ok());
 
     // Wrong z so that the relation does not hold
-    let mut bad_z = z.clone();
+    let mut bad_z = z;
     bad_z[3] = G::Scalar::ZERO;
 
     // LCCCS with the wrong z should not pass `is_sat`.
