@@ -26,7 +26,7 @@ use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 use std::sync::Arc;
 
-use super::CCSShape;
+use super::CCS;
 pub(crate) mod virtual_poly;
 pub(crate) use virtual_poly::VirtualPolynomial;
 
@@ -181,12 +181,12 @@ mod tests {
   }
 
   fn test_compute_sum_Mz_over_boolean_hypercube_with<G: Group>() {
-    let z = CCSShape::<G>::get_test_z(3);
-    let (ccs, _, _) = CCSShape::<G>::gen_test_ccs(&z);
+    let z = CCS::<Ep>::get_test_z(3);
+    let (ccs, _, _) = CCS::<Ep>::gen_test_ccs(&z);
 
     // Generate other artifacts
-    let ck = CCSShape::<G>::commitment_key(&ccs);
-    let (_, _, cccs) = ccs.to_cccs(&mut OsRng, &ck, &z);
+    let ck = CCS::<Ep>::commitment_key(&ccs);
+    let cccs = ccs.to_cccs();
 
     let z_mle = dense_vec_to_mle(ccs.s_prime, &z);
 

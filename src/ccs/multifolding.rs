@@ -1,7 +1,7 @@
-use super::cccs::{CCCSInstance, CCCSShape};
+use super::cccs::CCCS;
 use super::lcccs::LCCCS;
 use super::util::{compute_sum_Mz, VirtualPolynomial};
-use super::{CCSShape, CCSWitness};
+use super::{CCSWitness, CCS};
 use crate::ccs::util::compute_all_sum_Mz_evals;
 use crate::hypercube::BooleanHypercube;
 use crate::spartan::math::Math;
@@ -36,13 +36,13 @@ use std::sync::Arc;
 // Is our single source of data.
 #[derive(Debug)]
 pub struct Multifolding<G: Group> {
-  ccs: CCSShape<G>,
+  ccs: CCS<G>,
   ccs_mle: Vec<MultilinearPolynomial<G::Scalar>>,
 }
 
 impl<G: Group> Multifolding<G> {
   /// Generates a new Multifolding instance based on the given CCS.
-  pub fn new(ccs: CCSShape<G>) -> Self {
+  pub fn new(ccs: CCS<G>) -> Self {
     let ccs_mle = ccs.M.iter().map(|matrix| matrix.to_mle()).collect();
     Self { ccs, ccs_mle }
   }
@@ -102,7 +102,7 @@ impl<G: Group> Multifolding<G> {
   /// Compute g(x) polynomial for the given inputs.
   pub fn compute_g(
     running_instance: &LCCCS<G>,
-    cccs_instance: &CCCSShape<G>,
+    cccs_instance: &CCCS<G>,
     z1: &Vec<G::Scalar>,
     z2: &Vec<G::Scalar>,
     gamma: G::Scalar,
@@ -129,20 +129,20 @@ impl<G: Group> Multifolding<G> {
   pub fn fold(
     &self,
     lcccs1: &LCCCS<G>,
-    cccs2: &CCCSInstance<G>,
+    cccs2: (&Commitment<G>, &[G::Scalar]),
     sigmas: &[G::Scalar],
     thetas: &[G::Scalar],
     r_x_prime: Vec<G::Scalar>,
     rho: G::Scalar,
   ) -> LCCCS<G> {
-    let C = lcccs1.C + cccs2.C.mul(rho);
+    let C = lcccs1.C + cccs2.0.mul(rho);
     let u = lcccs1.u + rho;
     let x: Vec<G::Scalar> = lcccs1
       .x
       .iter()
       .zip(
         cccs2
-          .x
+          .1
           .iter()
           .map(|x_i| *x_i * rho)
           .collect::<Vec<G::Scalar>>(),
@@ -212,11 +212,11 @@ mod tests {
   type NIMFS<G> = Multifolding<G>;
 
   fn test_compute_g_with<G: Group>() {
-    let z1 = CCSShape::<G>::get_test_z(3);
-    let z2 = CCSShape::<G>::get_test_z(4);
+    let z1 = CCS::<G>::get_test_z(3);
+    let z2 = CCS::<G>::get_test_z(4);
 
-    let (_, ccs_witness_1, ccs_instance_1) = CCSShape::<G>::gen_test_ccs(&z2);
-    let (ccs, ccs_witness_2, ccs_instance_2) = CCSShape::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_1, ccs_instance_1) = CCS::<G>::gen_test_ccs(&z2);
+    let (ccs, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z1);
     let ck = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
@@ -227,7 +227,7 @@ mod tests {
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
 
     let (lcccs_instance, _) = ccs.to_lcccs(&mut rng, &ck, &z1);
-    let cccs_instance = ccs.to_cccs_shape();
+    let cccs_instance = ccs.to_cccs();
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs_instance.v.len() {
@@ -268,11 +268,11 @@ mod tests {
   }
 
   fn test_compute_sigmas_and_thetas_with<G: Group>() {
-    let z1 = CCSShape::<G>::get_test_z(3);
-    let z2 = CCSShape::<G>::get_test_z(4);
+    let z1 = CCS::<G>::get_test_z(3);
+    let z2 = CCS::<G>::get_test_z(4);
 
-    let (_, ccs_witness_1, ccs_instance_1) = CCSShape::<G>::gen_test_ccs(&z2);
-    let (ccs, ccs_witness_2, ccs_instance_2) = CCSShape::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_1, ccs_instance_1) = CCS::<G>::gen_test_ccs(&z2);
+    let (ccs, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z1);
     let ck: CommitmentKey<G> = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
@@ -285,7 +285,7 @@ mod tests {
 
     // Initialize a multifolding object
     let (lcccs_instance, _) = ccs.to_lcccs(&mut rng, &ck, &z1);
-    let (cccs_instance) = ccs.to_cccs_shape();
+    let cccs_instance = ccs.to_cccs();
 
     // Generate a new multifolding instance
     let nimfs = NIMFS::new(ccs.clone());
@@ -343,12 +343,12 @@ mod tests {
   }
 
   fn test_lccs_fold_with<G: Group>() {
-    let z1 = CCSShape::<G>::get_test_z(3);
-    let z2 = CCSShape::<G>::get_test_z(4);
+    let z1 = CCS::<G>::get_test_z(3);
+    let z2 = CCS::<G>::get_test_z(4);
 
     // ccs stays the same regardless of z1 or z2
-    let (ccs, ccs_witness_1, ccs_instance_1) = CCSShape::<G>::gen_test_ccs(&z1);
-    let (_, ccs_witness_2, ccs_instance_2) = CCSShape::<G>::gen_test_ccs(&z2);
+    let (ccs, ccs_witness_1, ccs_instance_1) = CCS::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z2);
     let ck: CommitmentKey<G> = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
@@ -365,26 +365,25 @@ mod tests {
     // Initialize a multifolding object
     let (lcccs_instance, lcccs_witness) = ccs.to_lcccs(&mut rng, &ck, &z1);
 
-    let (cccs_instance, cccs_witness, cccs_shape) = ccs.to_cccs(&mut rng, &ck, &z2);
+    let cccs = ccs.to_cccs();
 
     assert!(lcccs_instance.is_sat(&ck, &lcccs_witness).is_ok());
-
-    assert!(cccs_shape
-      .is_sat(&ck, &ccs_witness_2, &cccs_instance)
+    assert!(cccs
+      .is_sat(&ck, &z2[1..ccs.l], ccs_instance_2.comm_w)
       .is_ok());
 
     let rho = G::Scalar::random(&mut rng);
 
     let folded = nimfs.fold(
       &lcccs_instance,
-      &cccs_instance,
+      (&ccs_instance_2.comm_w, [z2[0]].as_slice()),
       &sigmas,
       &thetas,
       r_x_prime,
       rho,
     );
 
-    let w_folded = NIMFS::fold_witness(&lcccs_witness, &cccs_witness, rho);
+    let w_folded = NIMFS::fold_witness(&lcccs_witness, &ccs_witness_2, rho);
 
     // check lcccs relation
     assert!(folded.is_sat(&ck, &w_folded).is_ok());

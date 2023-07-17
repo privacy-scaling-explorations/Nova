@@ -1,5 +1,5 @@
 use super::util::{compute_sum_Mz, VirtualPolynomial};
-use super::{CCSShape, CCSWitness};
+use super::{CCSWitness, CCS};
 use crate::ccs::util::compute_all_sum_Mz_evals;
 use crate::hypercube::BooleanHypercube;
 use crate::spartan::math::Math;
@@ -41,7 +41,7 @@ pub struct LCCCS<G: Group> {
   pub r_x: Vec<G::Scalar>,
   // This should not need to be here. Should be a reference only.
   pub(crate) matrix_mles: Vec<MultilinearPolynomial<G::Scalar>>,
-  pub(crate) ccs: CCSShape<G>,
+  pub(crate) ccs: CCS<G>,
 }
 
 impl<G: Group> LCCCS<G> {
@@ -104,8 +104,8 @@ mod tests {
 
   fn satisfied_ccs_is_satisfied_lcccs_with<G: Group>() {
     // Gen test vectors & artifacts
-    let z = CCSShape::<G>::get_test_z(3);
-    let (ccs, witness, instance) = CCSShape::<G>::gen_test_ccs(&z);
+    let z = CCS::<Ep>::get_test_z(3);
+    let (ccs, witness, instance) = CCS::<Ep>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
     assert!(ccs.is_sat(&ck, &instance, &witness).is_ok());
 
@@ -127,8 +127,8 @@ mod tests {
     let mut rng = OsRng;
 
     // Gen test vectors & artifacts
-    let z = CCSShape::<G>::get_test_z(3);
-    let (ccs, _, _) = CCSShape::<G>::gen_test_ccs(&z);
+    let z = CCS::<Ep>::get_test_z(3);
+    let (ccs, _, _) = CCS::<Ep>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
 
     // Get LCCCS
@@ -149,8 +149,8 @@ mod tests {
     let mut rng = OsRng;
 
     // Gen test vectors & artifacts
-    let z = CCSShape::<G>::get_test_z(3);
-    let (ccs, _, _) = CCSShape::<G>::gen_test_ccs(&z);
+    let z = CCS::<Ep>::get_test_z(3);
+    let (ccs, witness, instance) = CCS::<Ep>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
 
     // Mutate z so that the relation does not hold
