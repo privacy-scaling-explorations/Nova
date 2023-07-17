@@ -23,6 +23,7 @@ use core::{cmp::max, marker::PhantomData};
 use ff::{Field, PrimeField};
 use flate2::{write::ZlibEncoder, Compression};
 use itertools::concat;
+use rand_core::RngCore;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
@@ -30,11 +31,10 @@ use std::ops::{Add, Mul};
 use std::sync::Arc;
 
 /// A type that holds a LCCCS instance
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct LCCCS<G: Group> {
   pub(crate) w_comm: Commitment<G>,
-  pub(crate) x: Vec<G::Scalar>,
   pub(crate) u: G::Scalar,
   pub(crate) v: Vec<G::Scalar>,
   // Random evaluation point for the v_i
@@ -43,13 +43,31 @@ pub struct LCCCS<G: Group> {
 }
 
 impl<G: Group> LCCCS<G> {
-  // XXX: Double check that this is indeed correct.
-  /// Samples public parameters for the specified number of constraints and variables in an CCS
-  // pub fn commitment_key(&self) -> CommitmentKey<G> {
-  //   let total_nz = self.ccs.M.iter().fold(0, |acc, m| acc + m.coeffs().len());
+  /// Generates a new LCCCS instance from a given randomness, CommitmentKey & witness input vector.
+  /// This should only be used to probably test or setup the initial NIMFS instance.
+  pub(crate) fn new<R: RngCore>(
+    ccs: &CCS<G>,
+    ccs_m_mle: &[MultilinearPolynomial<G::Scalar>],
+    ck: &CommitmentKey<G>,
+    z: Vec<G::Scalar>,
+    mut rng: &mut R,
+  ) -> Self {
+    let r_w = G::Scalar::random(&mut rng);
+    let w_comm = <<G as Group>::CE as CommitmentEngineTrait<G>>::commit(ck, &z[(1 + ccs.l)..]);
 
-  //   G::CE::setup(b"ck", max(max(self.ccs.m, self.ccs.t), total_nz))
-  // }
+    // XXX: API doesn't offer a way to handle this??
+    let _r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
+
+    let v = ccs.compute_v_j(&z, &_r_x, ccs_m_mle);
+
+    Self {
+      w_comm,
+      u: G::Scalar::ONE,
+      v,
+      r_x: _r_x,
+      z,
+    }
+  }
 
   /// Checks if the CCS instance is satisfiable given a witness and its shape
   pub fn is_sat(
@@ -114,8 +132,8 @@ mod tests {
     assert!(ccs.is_sat(&ck, &instance, &witness).is_ok());
 
     // LCCCS with the correct z should pass
-    let (lcccs, _) = ccs.to_lcccs(&mut OsRng, &ck, &z);
-    assert!(lcccs.is_sat(&ck, &witness).is_ok());
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
+    assert!(lcccs.is_sat(&ccs, &mles, &ck).is_ok());
 
     // Wrong z so that the relation does not hold
     let mut bad_z = z;
@@ -123,8 +141,8 @@ mod tests {
 
     // LCCCS with the wrong z should not pass `is_sat`.
     // LCCCS with the correct z should pass
-    let (lcccs, _) = ccs.to_lcccs(&mut OsRng, &ck, &bad_z);
-    assert!(lcccs.is_sat(&ck, &witness).is_err());
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, bad_z, &mut OsRng);
+    assert!(lcccs.is_sat(&ccs, &mles, &ck).is_err());
   }
 
   fn test_lcccs_v_j_with<G: Group>() {
@@ -132,13 +150,13 @@ mod tests {
 
     // Gen test vectors & artifacts
     let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, _, _) = CCS::<Ep>::gen_test_ccs(&z);
+    let (ccs, _, _, mles) = CCS::<Ep>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
 
     // Get LCCCS
-    let (lcccs, _) = ccs.to_lcccs(&mut rng, &ck, &z);
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
 
-    let vec_L_j_x = lcccs.compute_Ls(&z);
+    let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles, &ck, &z);
     assert_eq!(vec_L_j_x.len(), lcccs.v.len());
 
     for (v_i, L_j_x) in lcccs.v.into_iter().zip(vec_L_j_x) {
@@ -154,21 +172,24 @@ mod tests {
 
     // Gen test vectors & artifacts
     let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, witness, instance) = CCS::<Ep>::gen_test_ccs(&z);
+    let (ccs, witness, instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
 
     // Mutate z so that the relation does not hold
     let mut bad_z = z.clone();
     bad_z[3] = G::Scalar::ZERO;
 
-    // Get LCCCS
-    let (lcccs, _) = ccs.to_lcccs(&mut rng, &ck, &z);
+    // Compute v_j with the right z
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
+    // Assert LCCCS is satisfied with the original Z
+    assert!(lcccs.is_sat(&ccs, &mles, &ck).is_ok());
 
-    // Bad compute L_j(x) with the bad z
-    let vec_L_j_x = lcccs.compute_Ls(&bad_z);
+    // Compute L_j(x) with the bad z
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, bad_z, &mut OsRng);
+    let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles, &ck, &bad_z);
     assert_eq!(vec_L_j_x.len(), lcccs.v.len());
     // Assert LCCCS is not satisfied with the bad Z
-    assert!(lcccs.is_sat(&ck, &CCSWitness { w: bad_z }).is_err());
+    assert!(lcccs.is_sat(&ccs, &mles, &ck).is_err());
 
     // Make sure that the LCCCS is not satisfied given these L_j(x)
     // i.e. summing L_j(x) over the hypercube should not give v_j for all j
