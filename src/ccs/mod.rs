@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 
-use self::cccs::CCCS;
+use self::cccs::CCCSInstance;
 use self::lcccs::LCCCS;
 use self::util::compute_all_sum_Mz_evals;
 
@@ -117,56 +117,15 @@ impl<G: Group> CCS<G> {
     }
   }
 
-  // Transform the CCS instance into a CCCS instance by providing a commitment key.
-  pub fn to_cccs(&self) -> CCCS<G> {
-    let M_mle = self.M.iter().map(|matrix| matrix.to_mle()).collect();
-
-    CCCS {
-      M_MLE: M_mle,
-      ccs: self.clone(),
-    }
-  }
-
-  /// Transform the CCS instance into an LCCCS instance by providing a commitment key.
-  pub fn to_lcccs<R: RngCore>(
-    &self,
-    mut rng: &mut R,
-    ck: &<<G as Group>::CE as CommitmentEngineTrait<G>>::CommitmentKey,
-    z: &[G::Scalar],
-  ) -> (LCCCS<G>, CCSWitness<G>) {
-    let w: Vec<G::Scalar> = z[(1 + self.l)..].to_vec();
-    let r_w = G::Scalar::random(&mut rng);
-    let C = <<G as Group>::CE as CommitmentEngineTrait<G>>::commit(ck, &w);
-
-    // XXX: API doesn't offer a way to handle this??
-    let _r_x: Vec<G::Scalar> = (0..self.s).map(|_| G::Scalar::random(&mut rng)).collect();
-
-    let v = self.compute_v_j(z, &_r_x);
-    // XXX: Is absurd to compute these again here. We should take care of this.
-    let matrix_mles: Vec<MultilinearPolynomial<G::Scalar>> =
-      self.M.iter().map(|matrix| matrix.to_mle()).collect();
-
-    (
-      LCCCS::<G> {
-        ccs: self.clone(),
-        C,
-        u: G::Scalar::ONE,
-        x: z[1..(1 + self.l)].to_vec(),
-        r_x: _r_x,
-        v,
-        matrix_mles,
-      },
-      CCSWitness::<G> { w },
-    )
-  }
-
   /// Compute v_j values of the linearized committed CCS form
   /// Given `r`, compute:  \sum_{y \in {0,1}^s'} M_j(r, y) * z(y)
-  fn compute_v_j(&self, z: &[G::Scalar], r: &[G::Scalar]) -> Vec<G::Scalar> {
-    // XXX: Should these be MLE already?
-    let M_mle: Vec<MultilinearPolynomial<G::Scalar>> =
-      self.M.iter().map(|matrix| matrix.to_mle()).collect();
-    compute_all_sum_Mz_evals::<G>(&M_mle, &z.to_vec(), r, self.s_prime)
+  fn compute_v_j(
+    &self,
+    z: &[G::Scalar],
+    r: &[G::Scalar],
+    ccs_matrix_mles: &[MultilinearPolynomial<G::Scalar>],
+  ) -> Vec<G::Scalar> {
+    compute_all_sum_Mz_evals::<G>(ccs_matrix_mles, &z.to_vec(), r, self.s_prime)
   }
 
   // XXX: Update commitment_key variables here? This is currently based on R1CS with M length
@@ -280,7 +239,14 @@ impl<G: Group> CCS<G> {
   }
 
   #[cfg(test)]
-  pub(crate) fn gen_test_ccs(z: &[G::Scalar]) -> (CCS<G>, CCSWitness<G>, CCSInstance<G>) {
+  pub(crate) fn gen_test_ccs(
+    z: &[G::Scalar],
+  ) -> (
+    CCS<G>,
+    CCSWitness<G>,
+    CCSInstance<G>,
+    Vec<MultilinearPolynomial<G::Scalar>>,
+  ) {
     let one = G::Scalar::ONE;
     let A = vec![
       (0, 1, one),
@@ -302,11 +268,12 @@ impl<G: Group> CCS<G> {
     let ck = CCS::<G>::commitment_key(&ccs);
     let ccs_w = CCSWitness::new(z[2..].to_vec());
     let ccs_instance = CCSInstance::new(&ccs, &ccs_w.commit(&ck), vec![z[1]]).unwrap();
+    let ccs_mles = ccs.M.iter().map(|m| m.to_mle()).collect();
 
     ccs
       .is_sat(&ck, &ccs_instance, &ccs_w)
       .expect("This does not fail");
-    (ccs, ccs_w, ccs_instance)
+    (ccs, ccs_w, ccs_instance, ccs_mles)
   }
 
   #[cfg(test)]
