@@ -81,7 +81,7 @@ impl<G: Group> LCCCS<G> {
     // opening, but checking that the Commmitment comes from committing to the witness.
     let comm_eq = self.w_comm == CE::<G>::commit(ck, w);
 
-    let computed_v = compute_all_sum_Mz_evals::<G>(ccs_m_mle, w, &self.r_x, ccs.s_prime);
+    let computed_v = compute_all_sum_Mz_evals::<G>(ccs_m_mle, &self.z, &self.r_x, ccs.s_prime);
     let vs_eq = computed_v == self.v;
 
     if vs_eq && comm_eq {
@@ -179,12 +179,12 @@ mod tests {
     bad_z[3] = G::Scalar::ZERO;
 
     // Compute v_j with the right z
-    let lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
+    let mut lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
     // Assert LCCCS is satisfied with the original Z
     assert!(lcccs.is_sat(&ccs, &mles, &ck).is_ok());
 
     // Compute L_j(x) with the bad z
-    let lcccs = LCCCS::new(&ccs, &mles, &ck, bad_z, &mut OsRng);
+    lcccs.z = bad_z;
     let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles, &ck);
     assert_eq!(vec_L_j_x.len(), lcccs.v.len());
     // Assert LCCCS is not satisfied with the bad Z
