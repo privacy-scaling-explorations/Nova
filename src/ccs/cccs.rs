@@ -48,16 +48,13 @@ impl<G: Group> CCCSInstance<G> {
   pub fn new(
     ccs: &CCS<G>,
     ccs_matrix_mle: &Vec<MultilinearPolynomial<G::Scalar>>,
-    z: &[G::Scalar],
+    z: Vec<G::Scalar>,
     ck: &CommitmentKey<G>,
   ) -> Self {
     let x_comm = CE::<G>::commit(ck, &z[1..ccs.l]);
-    let w_comm = CE::<G>::commit(ck, &z[ccs.l..]);
+    let w_comm = CE::<G>::commit(ck, &z[(1 + ccs.l)..]);
 
     Self {
-      M_MLE: ccs_matrix_mle,
-      ccs,
-      ck,
       z: z.to_vec(),
       w_comm,
       x_comm,
@@ -66,9 +63,13 @@ impl<G: Group> CCCSInstance<G> {
 
   // Computes q(x) = \sum^q c_i * \prod_{j \in S_i} ( \sum_{y \in {0,1}^s'} M_j(x, y) * z(y) )
   // polynomial over x
-  pub fn compute_q(&self) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
-    let z_mle = dense_vec_to_mle::<G::Scalar>(self.ccs.s_prime, &self.z);
-    if z_mle.get_num_vars() != self.ccs.s_prime {
+  pub fn compute_q(
+    &self,
+    ccs: &CCS<G>,
+    ccs_mles: &[MultilinearPolynomial<G::Scalar>],
+  ) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
+    let z_mle = dense_vec_to_mle::<G::Scalar>(ccs.s_prime, &self.z);
+    if z_mle.get_num_vars() != ccs.s_prime {
       // this check if redundant if dense_vec_to_mle is correct
       return Err(NovaError::VpArith);
     }
@@ -76,11 +77,11 @@ impl<G: Group> CCCSInstance<G> {
     // Using `fold` requires to not have results inside. So we unwrap for now but
     // a better approach is needed (we ca just keep the for loop otherwise.)
     Ok(
-      (0..self.ccs.q).fold(VirtualPolynomial::<G::Scalar>::new(self.ccs.s), |q, idx| {
-        let mut prod = VirtualPolynomial::<G::Scalar>::new(self.ccs.s);
+      (0..ccs.q).fold(VirtualPolynomial::<G::Scalar>::new(ccs.s), |q, idx| {
+        let mut prod = VirtualPolynomial::<G::Scalar>::new(ccs.s);
 
-        for &j in &self.ccs.S[idx] {
-          let sum_Mz = compute_sum_Mz::<G>(&self.M_MLE[j], &z_mle);
+        for &j in &ccs.S[idx] {
+          let sum_Mz = compute_sum_Mz::<G>(&ccs_mles[j], &z_mle);
 
           // Fold this sum into the running product
           if prod.products.is_empty() {
@@ -95,7 +96,7 @@ impl<G: Group> CCCSInstance<G> {
           }
         }
         // Multiply by the product by the coefficient c_i
-        prod.scalar_mul(&self.ccs.c[idx]);
+        prod.scalar_mul(&ccs.c[idx]);
         // Add it to the running sum
         q.add(&prod)
       }),
@@ -105,23 +106,31 @@ impl<G: Group> CCCSInstance<G> {
   /// Computes Q(x) = eq(beta, x) * q(x)
   ///               = eq(beta, x) * \sum^q c_i * \prod_{j \in S_i} ( \sum_{y \in {0,1}^s'} M_j(x, y) * z(y) )
   /// polynomial over x
-  pub fn compute_Q(&self, beta: &[G::Scalar]) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
-    let q = self.compute_q()?;
+  pub fn compute_Q(
+    &self,
+    ccs: &CCS<G>,
+    ccs_mles: &[MultilinearPolynomial<G::Scalar>],
+    ck: &CommitmentKey<G>,
+    beta: &[G::Scalar],
+  ) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
+    let q = self.compute_q(ccs, ccs_mles)?;
     q.build_f_hat(beta)
   }
 
   /// Perform the check of the CCCSInstance instance described at section 4.1
-  pub fn is_sat(&self) -> Result<(), NovaError> {
+  pub fn is_sat(
+    &self,
+    ccs: &CCS<G>,
+    ccs_mles: &[MultilinearPolynomial<G::Scalar>],
+    ck: &CommitmentKey<G>,
+  ) -> Result<(), NovaError> {
     // check that C is the commitment of w. Notice that this is not verifying a Pedersen
     // opening, but checking that the Commmitment comes from committing to the witness.
-    assert_eq!(
-      self.w_comm,
-      CE::<G>::commit(self.ck, &self.z[(1 + self.ccs.l)..])
-    );
+    assert_eq!(self.w_comm, CE::<G>::commit(ck, &self.z[(1 + ccs.l)..]));
 
     // A CCCSInstance relation is satisfied if the q(x) multivariate polynomial evaluates to zero in the hypercube
-    let q_x = self.compute_q().unwrap();
-    for x in BooleanHypercube::new(self.ccs.s) {
+    let q_x = self.compute_q(ccs, ccs_mles).unwrap();
+    for x in BooleanHypercube::new(ccs.s) {
       if !q_x.evaluate(&x).unwrap().is_zero().unwrap_u8() == 0 {
         return Err(NovaError::UnSat);
       }
@@ -172,17 +181,16 @@ mod tests {
     let mut rng = OsRng;
 
     let z = CCS::<Ep>::get_test_z(3);
-    let (ccs_shape, ccs_witness, ccs_instance) = CCS::<Ep>::gen_test_ccs(&z);
+    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
 
     // generate ck
-    let ck = CCS::<Ep>::commitment_key(&ccs_shape);
+    let ck = CCS::<Ep>::commitment_key(&ccs);
     // ensure CCS is satisfied
-    ccs_shape.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
+    ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
     // Generate CCCSInstance artifacts
-    let cccs_shape = ccs_shape.to_cccs();
-
-    let q = cccs_shape.compute_q(&z).unwrap();
+    let cccs = CCCSInstance::new(&ccs, &mles, z, &ck);
+    let q = cccs.compute_q(&ccs, &mles).unwrap();
 
     // Evaluate inside the hypercube
     BooleanHypercube::new(ccs_shape.s).for_each(|x| {
@@ -200,12 +208,12 @@ mod tests {
     let mut rng = OsRng;
 
     let z = CCS::<Ep>::get_test_z(3);
-    let (ccs_shape, ccs_witness, ccs_instance) = CCS::<Ep>::gen_test_ccs(&z);
+    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
 
     // generate ck
-    let ck = CCS::<Ep>::commitment_key(&ccs_shape);
+    let ck = CCS::<Ep>::commitment_key(&ccs);
     // ensure CCS is satisfied
-    ccs_shape.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
+    ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
     // Generate CCCS artifacts
     let cccs: CCCS<Ep> = ccs_shape.to_cccs();
@@ -216,7 +224,7 @@ mod tests {
 
     // Compute Q(x) = eq(beta, x) * q(x).
     let Q = cccs
-      .compute_Q(&z, &beta)
+      .compute_Q(&ccs, &mles, &ck, &beta)
       .expect("Computation of Q should not fail");
 
     // Let's consider the multilinear polynomial G(x) = \sum_{y \in {0, 1}^s} eq(x, y) q(y)
@@ -231,7 +239,7 @@ mod tests {
     // Hence, evaluating G(x) at a random beta should give zero.
 
     // Now sum Q(x) evaluations in the hypercube and expect it to be 0
-    let r = BooleanHypercube::new(ccs_shape.s)
+    let r = BooleanHypercube::new(ccs.s)
       .map(|x| Q.evaluate(&x).unwrap())
       .fold(G::Scalar::ZERO, |acc, result| acc + result);
     assert_eq!(r, G::Scalar::ZERO);
@@ -241,43 +249,41 @@ mod tests {
     let mut rng = OsRng;
 
     let z = CCS::<Ep>::get_test_z(3);
-    let (ccs_shape, ccs_witness, ccs_instance) = CCS::<Ep>::gen_test_ccs(&z);
+    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
 
     // generate ck
-    let ck = CCS::<Ep>::commitment_key(&ccs_shape);
+    let ck = CCS::<Ep>::commitment_key(&ccs);
     // ensure CCS is satisfied
-    ccs_shape.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
+    ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
     // Generate CCCS artifacts
-    let cccs_shape = ccs_shape.to_cccs();
-
+    let cccs = CCCSInstance::new(&ccs, &mles, z, &ck);
     // Now test that if we create Q(x) with eq(d,y) where d is inside the hypercube, \sum Q(x) should be G(d) which
     // should be equal to q(d), since G(x) interpolates q(x) inside the hypercube
-    let q = cccs_shape
-      .compute_q(&z)
+    let q = cccs
+      .compute_q(&ccs, &mles)
       .expect("Computing q shoud not fail");
-    for d in BooleanHypercube::new(ccs_shape.s) {
-      let Q_at_d = cccs_shape
-        .compute_Q(&z, &d)
+
+    for d in BooleanHypercube::new(ccs.s) {
+      let Q_at_d = cccs
+        .compute_Q(&ccs, &mles, &ck, &d)
         .expect("Computing Q_at_d shouldn't fail");
 
       // Get G(d) by summing over Q_d(x) over the hypercube
-      let G_at_d = BooleanHypercube::new(ccs_shape.s)
+      let G_at_d = BooleanHypercube::new(ccs.s)
         .map(|x| Q_at_d.evaluate(&x).unwrap())
         .fold(G::Scalar::ZERO, |acc, result| acc + result);
       assert_eq!(G_at_d, q.evaluate(&d).unwrap());
     }
 
     // Now test that they should disagree outside of the hypercube
-    let r: Vec<G::Scalar> = (0..ccs_shape.s)
-      .map(|_| G::Scalar::random(&mut rng))
-      .collect();
-    let Q_at_r = cccs_shape
-      .compute_Q(&z, &r)
+    let r: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
+    let Q_at_r = cccs
+      .compute_Q(&ccs, &mles, &ck, &r)
       .expect("Computing Q_at_r shouldn't fail");
 
     // Get G(d) by summing over Q_d(x) over the hypercube
-    let G_at_r = BooleanHypercube::new(ccs_shape.s)
+    let G_at_r = BooleanHypercube::new(ccs.s)
       .map(|x| Q_at_r.evaluate(&x).unwrap())
       .fold(G::Scalar::ZERO, |acc, result| acc + result);
     assert_ne!(G_at_r, q.evaluate(&r).unwrap());
