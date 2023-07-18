@@ -89,7 +89,7 @@ fn fix_one_variable_helper<F: PrimeField>(data: &[F], nv: usize, point: &F) -> V
 pub fn compute_all_sum_Mz_evals<G: Group>(
   M_x_y_mle: &[MultilinearPolynomial<G::Scalar>],
   // XXX: Can we just get the MLE?
-  z: &Vec<G::Scalar>,
+  z: &[G::Scalar],
   r: &[G::Scalar],
   s_prime: usize,
 ) -> Vec<G::Scalar> {
@@ -182,7 +182,7 @@ mod tests {
 
   fn test_compute_sum_Mz_over_boolean_hypercube_with<G: Group>() {
     let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, _, _) = CCS::<Ep>::gen_test_ccs(&z);
+    let (ccs, _, _, _) = CCS::<Ep>::gen_test_ccs(&z);
 
     // Generate other artifacts
     let ck = CCS::<Ep>::commitment_key(&ccs);

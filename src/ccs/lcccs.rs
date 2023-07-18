@@ -52,19 +52,19 @@ impl<G: Group> LCCCS<G> {
     z: Vec<G::Scalar>,
     mut rng: &mut R,
   ) -> Self {
-    let r_w = G::Scalar::random(&mut rng);
+    // XXX: API doesn't offer a way to handle this??
+    let _r_w = G::Scalar::random(&mut rng);
     let w_comm = <<G as Group>::CE as CommitmentEngineTrait<G>>::commit(ck, &z[(1 + ccs.l)..]);
 
-    // XXX: API doesn't offer a way to handle this??
-    let _r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
-
-    let v = ccs.compute_v_j(&z, &_r_x, ccs_m_mle);
+    // Evaluation points for `v`
+    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
+    let v = ccs.compute_v_j(&z, &r_x, ccs_m_mle);
 
     Self {
       w_comm,
       u: G::Scalar::ONE,
       v,
-      r_x: _r_x,
+      r_x,
       z,
     }
   }
