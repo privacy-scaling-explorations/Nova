@@ -188,9 +188,8 @@ mod tests {
 
     // Generate other artifacts
     let ck = CCS::<Ep>::commitment_key(&ccs);
-    let cccs = CCCSInstance::new(&ccs, &mles, &z, &ck);
-
     let z_mle = dense_vec_to_mle(ccs.s_prime, &z);
+    let cccs = CCCSInstance::new(&ccs, &mles, z, &ck);
 
     // check that evaluating over all the values x over the boolean hypercube, the result of
     // the next for loop is equal to 0

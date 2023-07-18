@@ -67,13 +67,13 @@ impl<G: Group> Multifolding<G> {
   ) -> Self {
     let w: Vec<G::Scalar> = z[(1 + ccs.l)..].to_vec();
     let ck = ccs.commitment_key();
-    let r_w = G::Scalar::random(rng);
+    let r_w = G::Scalar::random(&mut rng);
     let w_comm = <G as Group>::CE::commit(&ck, &w);
 
-    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(rng)).collect();
+    let r_x: Vec<G::Scalar> = vec![G::Scalar::random(&mut rng); ccs.s];
     let v = ccs.compute_v_j(&z, &r_x, &ccs_mle);
 
-    let lcccs = LCCCS::new(&ccs, &ccs_mle, &ck, z, rng);
+    let lcccs = LCCCS::new(&ccs, &ccs_mle, &ck, z, &mut rng);
 
     Self {
       ccs,
@@ -150,7 +150,7 @@ impl<G: Group> Multifolding<G> {
     let mut vec_L = self.lcccs.compute_Ls(&self.ccs, &self.ccs_mle, &self.ck);
 
     let mut Q = cccs_instance
-      .compute_Q(beta)
+      .compute_Q(&self.ccs, &self.ccs_mle, &self.ck, beta)
       .expect("Q comp should not fail");
 
     let mut g = vec_L[0].clone();
@@ -250,7 +250,7 @@ mod tests {
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
-    let cccs_instance = CCCSInstance::new(&ccs, &mles, &z2, &ck);
+    let cccs_instance = CCCSInstance::new(&ccs, &mles, z2, &ck);
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs_instance.v.len() {
@@ -258,7 +258,7 @@ mod tests {
       sum_v_j_gamma += lcccs.v[j] * gamma_j;
     }
 
-    let nimfs = NIMFS::new(ccs, mles, lcccs, ck);
+    let nimfs = NIMFS::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
     // Compute g(x) with that r_x
     let g = nimfs.compute_g(&cccs_instance, gamma, &beta);
@@ -308,15 +308,15 @@ mod tests {
     let r_x_prime: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
-    let cccs_instance = CCCSInstance::new(&ccs, &mles, &z2, &ck);
+    let cccs = CCCSInstance::new(&ccs, &mles, z2, &ck);
 
     // Generate a new multifolding instance
-    let nimfs = NIMFS::new(ccs, mles, lcccs, ck);
+    let nimfs = NIMFS::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
     // XXX: This needs to be properly thought?
-    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&z2, &r_x_prime);
+    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
 
-    let g = nimfs.compute_g(&cccs_instance, gamma, &beta);
+    let g = nimfs.compute_g(&cccs, gamma, &beta);
     // Assert `g` is correctly computed here.
     {
       // evaluate g(x) over x \in {0,1}^s
@@ -325,8 +325,8 @@ mod tests {
         g_on_bhc += g.evaluate(&x).unwrap();
       }
       // evaluate sum_{j \in [t]} (gamma^j * Lj(x)) over x \in {0,1}^s
-      let mut sum_Lj_on_bhc = G::Scalar::ZERO;
-      let vec_L = lcccs.compute_Ls(&ccs, &mles, &ck);
+      let mut sum_Lj_on_bhc = G::Scalar::zero();
+      let vec_L = nimfs.lcccs.compute_Ls(&ccs, &mles, &ck);
       for x in BooleanHypercube::new(ccs.s) {
         for (j, coeff) in vec_L.iter().enumerate() {
           let gamma_j = gamma.pow([j as u64]);
@@ -366,13 +366,13 @@ mod tests {
     let (_, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z2);
     let ck: CommitmentKey<G> = ccs.commitment_key();
 
-    let cccs = CCCSInstance::new(&ccs, &mles, &z2, &ck);
-    assert!(cccs.is_sat().is_ok());
+    let cccs = CCCSInstance::new(&ccs, &mles, z2, &ck);
+    assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
 
     // Generate a new multifolding instance
     let mut nimfs = Multifolding::init(&mut rng, ccs, mles, z1);
     assert!(nimfs.is_sat().is_ok());
-    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&z2, &r_x_prime);
+    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
 
     let rho = Fq::random(&mut rng);
     nimfs.fold(cccs, &sigmas, &thetas, r_x_prime, rho);
