@@ -84,6 +84,9 @@ impl<G: Group> LCCCS<G> {
     let computed_v = compute_all_sum_Mz_evals::<G>(ccs_m_mle, &self.z, &self.r_x, ccs.s_prime);
     let vs_eq = computed_v == self.v;
 
+    dbg!(vs_eq);
+    dbg!(comm_eq);
+
     if vs_eq && comm_eq {
       Ok(())
     } else {
@@ -131,7 +134,7 @@ mod tests {
     assert!(ccs.is_sat(&ck, &instance, &witness).is_ok());
 
     // LCCCS with the correct z should pass
-    let lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
+    let mut lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
     assert!(lcccs.is_sat(&ccs, &mles, &ck).is_ok());
 
     // Wrong z so that the relation does not hold
@@ -139,8 +142,7 @@ mod tests {
     bad_z[3] = G::Scalar::ZERO;
 
     // LCCCS with the wrong z should not pass `is_sat`.
-    // LCCCS with the correct z should pass
-    let lcccs = LCCCS::new(&ccs, &mles, &ck, bad_z, &mut OsRng);
+    lcccs.z = bad_z;
     assert!(lcccs.is_sat(&ccs, &mles, &ck).is_err());
   }
 
