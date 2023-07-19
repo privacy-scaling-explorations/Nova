@@ -84,6 +84,9 @@ pub struct MultilinearPolynomial<Scalar: PrimeField> {
 }
 
 impl<Scalar: PrimeField> MultilinearPolynomial<Scalar> {
+  /// Creates a new MultilinearPolynomial from the given evaluations.
+  ///
+  /// The number of evaluations must be a power of two.
   pub fn new(Z: Vec<Scalar>) -> Self {
     assert_eq!(Z.len(), (2_usize).pow((Z.len() as f64).log2() as u32));
     MultilinearPolynomial {
@@ -92,15 +95,19 @@ impl<Scalar: PrimeField> MultilinearPolynomial<Scalar> {
     }
   }
 
+  /// Returns the number of variables in the multilinear polynomial
   pub fn get_num_vars(&self) -> usize {
     self.num_vars
   }
 
+  /// Returns the total number of evaluations.
   pub fn len(&self) -> usize {
     self.Z.len()
   }
 
-  // NOTE: this is equivalent to Espresso/hyperplonk's 'fix_last_variables' mehthod
+  /// Bounds the polynomial's top variable using the given scalar.
+  ///
+  /// This operation modifies the polynomial in-place.
   pub fn bound_poly_var_top(&mut self, r: &Scalar) {
     let n = self.len() / 2;
 
@@ -118,7 +125,10 @@ impl<Scalar: PrimeField> MultilinearPolynomial<Scalar> {
     self.num_vars -= 1;
   }
 
-  // returns Z(r) in O(n) time
+  /// Evaluates the polynomial at the given point.
+  /// Returns Z(r) in O(n) time.
+  ///
+  /// The point must have a value for each variable.
   pub fn evaluate(&self, r: &[Scalar]) -> Scalar {
     // r must have a value for each variable
     assert_eq!(r.len(), self.get_num_vars());
@@ -131,6 +141,7 @@ impl<Scalar: PrimeField> MultilinearPolynomial<Scalar> {
       .reduce(|| Scalar::ZERO, |x, y| x + y)
   }
 
+  /// Evaluates the polynomial with the given evaluations and point.
   pub fn evaluate_with(Z: &[Scalar], r: &[Scalar]) -> Scalar {
     EqPolynomial::new(r.to_vec())
       .evals()
@@ -140,7 +151,7 @@ impl<Scalar: PrimeField> MultilinearPolynomial<Scalar> {
       .reduce(|| Scalar::ZERO, |x, y| x + y)
   }
 
-  // Multiplies `self` by a scalar.
+  /// Multiplies the polynomial by a scalar.
   #[allow(unused)]
   pub fn scalar_mul(&self, scalar: &Scalar) -> Self {
     let mut new_poly = self.clone();
@@ -304,7 +315,7 @@ mod tests {
   }
 
   fn test_sparse_polynomial_with<F: PrimeField>() {
-    // Let the polynomial has 3 variables, p(x_1, x_2, x_3) = (x_1 + x_2) * x_3
+    // Let the polynomial have 3 variables, p(x_1, x_2, x_3) = (x_1 + x_2) * x_3
     // Evaluations of the polynomial at boolean cube are [0, 0, 0, 1, 0, 1, 0, 2].
 
     let TWO = F::from(2);
