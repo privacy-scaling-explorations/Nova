@@ -18,7 +18,7 @@ use crate::spartan::math::Math;
 ///
 /// The vector r contains all the values of e_i, where e_i represents the individual bits of a binary representation of e.
 /// For example, let's consider e = 6, which in binary is 0b110. In this case, the vector r would be [1, 1, 0].
-pub(crate) struct EqPolynomial<Scalar: PrimeField> {
+pub struct EqPolynomial<Scalar: PrimeField> {
   r: Vec<Scalar>,
 }
 
