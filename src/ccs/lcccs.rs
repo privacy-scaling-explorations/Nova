@@ -35,7 +35,6 @@ use std::sync::Arc;
 #[serde(bound = "")]
 pub struct LCCCS<G: Group> {
   pub(crate) w_comm: Commitment<G>,
-  pub(crate) u: G::Scalar,
   pub(crate) v: Vec<G::Scalar>,
   // Random evaluation point for the v_i
   pub r_x: Vec<G::Scalar>,
@@ -60,13 +59,7 @@ impl<G: Group> LCCCS<G> {
     let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
     let v = ccs.compute_v_j(&z, &r_x, ccs_m_mle);
 
-    Self {
-      w_comm,
-      u: G::Scalar::ONE,
-      v,
-      r_x,
-      z,
-    }
+    Self { w_comm, v, r_x, z }
   }
 
   /// Checks if the CCS instance is satisfiable given a witness and its shape

@@ -168,15 +168,13 @@ impl<G: Group> Multifolding<G> {
   }
 
   // XXX: Add some docs
-  pub fn fold(
-    &mut self,
-    cccs2: CCCSInstance<G>,
-    sigmas: &[G::Scalar],
-    thetas: &[G::Scalar],
-    r_x_prime: Vec<G::Scalar>,
-    rho: G::Scalar,
-  ) {
-    let folded_u = self.lcccs.u + rho;
+  pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs2: CCCSInstance<G>, rho: G::Scalar) {
+    // Compute r_x_prime from a given randomnes.
+    let r_x_prime = vec![G::Scalar::random(&mut rng); self.ccs.s];
+    // Compute sigmas an thetas to fold `v`s.
+    let (sigmas, thetas) = self.compute_sigmas_and_thetas(&cccs2.z, &r_x_prime);
+
+    // Compute sigmas an thetas based on r_x_prime.
     let folded_v: Vec<G::Scalar> = sigmas
       .iter()
       .zip(
@@ -189,7 +187,7 @@ impl<G: Group> Multifolding<G> {
       .collect();
 
     self.lcccs.w_comm += cccs2.w_comm.mul(rho);
-    self.lcccs.u = folded_u;
+    // XXX: Mutably modify.
     self.lcccs.v = folded_v;
     self.lcccs.r_x = r_x_prime;
     self.fold_z(cccs2, rho);
@@ -197,6 +195,8 @@ impl<G: Group> Multifolding<G> {
 
   // XXX: Add docs
   fn fold_z(&mut self, cccs: CCCSInstance<G>, rho: G::Scalar) {
+    // Update u first.
+    self.lcccs.z[0] += rho;
     self.lcccs.z[1..]
       .iter_mut()
       .zip(cccs.z[1..].iter().map(|x_i| *x_i * rho))
@@ -347,18 +347,23 @@ mod tests {
     assert_eq!(c, expected_c);
   }
 
-  #[test]
   fn test_compute_g() {
     test_compute_g_with::<Ep>();
   }
 
   fn test_lccs_fold_with<G: Group>() {
+    let mut rng = OsRng;
+
     let z1 = CCS::<G>::get_test_z(3);
     let z2 = CCS::<G>::get_test_z(4);
 
     // ccs stays the same regardless of z1 or z2
-    let (_, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z2);
+    let (ccs, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_2, ccs_instance_2, _) = CCS::gen_test_ccs(&z2);
     let ck: CommitmentKey<G> = ccs.commitment_key();
+
+    assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
+    assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
     let cccs = CCCSInstance::new(&ccs, &mles, z2, &ck);
     assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
@@ -366,12 +371,11 @@ mod tests {
     // Generate a new multifolding instance
     let mut nimfs = Multifolding::init(&mut rng, ccs, mles, z1);
     assert!(nimfs.is_sat().is_ok());
-    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
 
     let rho = Fq::random(&mut rng);
-    nimfs.fold(cccs, &sigmas, &thetas, r_x_prime, rho);
+    nimfs.fold(&mut rng, cccs, rho);
 
-    // check lcccs relation
+    // check folding correct stuff still alows the NIMFS to be satisfied correctly.
     assert!(nimfs.is_sat().is_ok());
   }
 
