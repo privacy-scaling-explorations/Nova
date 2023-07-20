@@ -32,19 +32,19 @@ use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 use std::sync::Arc;
 
-/// The Multifolding structure is the center of operations of the folding scheme.
+/// The NIMFS structure is the center of operations of the folding scheme.
 /// Once generated, it allows us to fold any upcomming CCCS instances within it without needing to do much.
 // XXX: Pending to add doc examples.
 #[derive(Debug)]
-pub struct Multifolding<G: Group> {
+pub struct NIMFS<G: Group> {
   ccs: CCS<G>,
   ccs_mle: Vec<MultilinearPolynomial<G::Scalar>>,
   ck: CommitmentKey<G>,
   lcccs: LCCCS<G>,
 }
 
-impl<G: Group> Multifolding<G> {
-  /// Generates a new Multifolding instance based on the given CCS.
+impl<G: Group> NIMFS<G> {
+  /// Generates a new NIMFS instance based on the given CCS.
   pub fn new(
     ccs: CCS<G>,
     ccs_mle: Vec<MultilinearPolynomial<G::Scalar>>,
@@ -106,7 +106,7 @@ impl<G: Group> Multifolding<G> {
     )
   }
 
-  /// Compute the right-hand-side of step 5 of the multifolding scheme
+  /// Compute the right-hand-side of step 5 of the NIMFS scheme
   pub fn compute_c_from_sigmas_and_thetas(
     &self,
     sigmas: &[G::Scalar],
@@ -167,7 +167,7 @@ impl<G: Group> Multifolding<G> {
     g
   }
 
-  /// This folds an upcomming CCCS instance into the LCCCS instance contained within the Multifolding object.
+  /// This folds an upcomming CCCS instance into the LCCCS instance contained within the NIMFS object.
   pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs2: CCCS<G>, rho: G::Scalar) {
     // Compute r_x_prime from a given randomnes.
     let r_x_prime = vec![G::Scalar::random(&mut rng); self.ccs.s];
@@ -192,7 +192,7 @@ impl<G: Group> Multifolding<G> {
     self.fold_z(cccs2, rho);
   }
 
-  /// Folds the current `z` vector of the upcomming CCCS instance together with the LCCCS instance that is contained inside of the Multifolding object.
+  /// Folds the current `z` vector of the upcomming CCCS instance together with the LCCCS instance that is contained inside of the NIMFS object.
   fn fold_z(&mut self, cccs: CCCS<G>, rho: G::Scalar) {
     // Update u first.
     self.lcccs.z[0] += rho;
@@ -224,8 +224,8 @@ mod tests {
   use crate::ccs::{test, util::virtual_poly::build_eq_x_r};
   use pasta_curves::{Ep, Fq};
   use rand_core::OsRng;
-  // NIMFS: Non Interactive Multifolding Scheme
-  type NIMFS<G> = Multifolding<G>;
+  // NIMFS: Non Interactive NIMFS Scheme
+  type NIMFS = NIMFS<Ep>;
 
   fn test_compute_g_with<G: Group>() {
     let z1 = CCS::<G>::get_test_z(3);
@@ -303,7 +303,7 @@ mod tests {
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
     let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
-    // Generate a new multifolding instance
+    // Generate a new NIMFS instance
     let nimfs = NIMFS::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
     // XXX: This needs to be properly thought?
@@ -367,8 +367,8 @@ mod tests {
     let cccs = CCCS::new(&ccs, &mles, z2, &ck);
     assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
 
-    // Generate a new multifolding instance
-    let mut nimfs = Multifolding::init(&mut rng, ccs, mles, z1);
+    // Generate a new NIMFS instance
+    let mut nimfs = NIMFS::init(&mut rng, ccs, mles, z1);
     assert!(nimfs.is_sat().is_ok());
 
     let rho = Fq::random(&mut rng);
