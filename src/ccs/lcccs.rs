@@ -77,9 +77,6 @@ impl<G: Group> LCCCS<G> {
     let computed_v = compute_all_sum_Mz_evals::<G>(ccs_m_mle, &self.z, &self.r_x, ccs.s_prime);
     let vs_eq = computed_v == self.v;
 
-    dbg!(vs_eq);
-    dbg!(comm_eq);
-
     if vs_eq && comm_eq {
       Ok(())
     } else {

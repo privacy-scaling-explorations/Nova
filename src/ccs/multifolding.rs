@@ -86,6 +86,11 @@ impl<G: Group> NIMFS<G> {
     }
   }
 
+  /// Generates a new [`CCCS`] instance ready to be folded.
+  pub fn gen_cccs(&self, z: Vec<G::Scalar>) -> CCCS<G> {
+    CCCS::new(&self.ccs, &self.ccs_mle, z, &self.ck)
+  }
+
   /// This function checks whether the current IVC after the last fold performed is satisfied and returns an error if it isn't.
   pub fn is_sat(&self) -> Result<(), NovaError> {
     self.lcccs.is_sat(&self.ccs, &self.ccs_mle, &self.ck)
@@ -172,11 +177,13 @@ impl<G: Group> NIMFS<G> {
   }
 
   /// This folds an upcomming CCCS instance into the LCCCS instance contained within the NIMFS object.
-  pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs2: CCCS<G>, rho: G::Scalar) {
-    // Compute r_x_prime from a given randomnes.
+  pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs: CCCS<G>) {
+    // Compute r_x_prime and rho from a given randomnes.
     let r_x_prime = vec![G::Scalar::random(&mut rng); self.ccs.s];
+    let rho = G::Scalar::random(&mut rng);
+
     // Compute sigmas an thetas to fold `v`s.
-    let (sigmas, thetas) = self.compute_sigmas_and_thetas(&cccs2.z, &r_x_prime);
+    let (sigmas, thetas) = self.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
 
     // Compute new v from sigmas and thetas.
     let folded_v: Vec<G::Scalar> = sigmas
@@ -190,10 +197,10 @@ impl<G: Group> NIMFS<G> {
       .map(|(a_i, b_i)| *a_i + b_i)
       .collect();
 
-    self.lcccs.w_comm += cccs2.w_comm.mul(rho);
+    self.lcccs.w_comm += cccs.w_comm.mul(rho);
     self.lcccs.v = folded_v;
     self.lcccs.r_x = r_x_prime;
-    self.fold_z(cccs2, rho);
+    self.fold_z(cccs, rho);
   }
 
   /// Folds the current `z` vector of the upcomming CCCS instance together with the LCCCS instance that is contained inside of the NIMFS object.
@@ -374,7 +381,7 @@ mod tests {
     assert!(nimfs.is_sat().is_ok());
 
     let rho = Fq::random(&mut rng);
-    nimfs.fold(&mut rng, cccs, rho);
+    nimfs.fold(&mut rng, cccs);
 
     // check folding correct stuff still alows the NIMFS to be satisfied correctly.
     assert!(nimfs.is_sat().is_ok());

@@ -45,13 +45,17 @@ pub struct CCCS<G: Group> {
 impl<G: Group> CCCS<G> {
   /// Generates a new CCCS given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
   /// Then, given the input vector `z`.
-  pub fn new(
+  pub(crate) fn new(
     ccs: &CCS<G>,
     ccs_matrix_mle: &Vec<MultilinearPolynomial<G::Scalar>>,
     z: Vec<G::Scalar>,
     ck: &CommitmentKey<G>,
   ) -> Self {
-    let x_comm = CE::<G>::commit(ck, &z[1..ccs.l]);
+    let x_comm = if ccs.l != 0 {
+      CE::<G>::commit(ck, &z[1..ccs.l + 1])
+    } else {
+      Commitment::<G>::default()
+    };
     let w_comm = CE::<G>::commit(ck, &z[(1 + ccs.l)..]);
 
     Self {
