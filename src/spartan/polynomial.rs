@@ -7,28 +7,35 @@ use std::ops::{Add, Mul};
 
 use crate::spartan::math::Math;
 
-/// The multilinear extension polynomial, denoted as $\tilde{eq}$, is defined as follows:
+/// Represents the multilinear extension polynomial (MLE) of the equality polynomial $eq(x,e)$, denoted as $\tilde{eq}(x, e)$.
 ///
+/// The polynomial is defined by the formula:
 /// $$
 /// \tilde{eq}(x, e) = \prod_{i=0}^m(e_i * x_i + (1 - e_i) * (1 - x_i))
 /// $$
 ///
-/// This polynomial evaluates to 1 only when each component $x_i$ is equal to its corresponding component $e_i$.
-/// Otherwise, it evaluates to 0.
+/// Each element in the vector `r` corresponds to a component $e_i$, representing a bit from the binary representation of an input value $e$.
+/// This polynomial evaluates to 1 if every component $x_i$ equals its corresponding $e_i$, and 0 otherwise.
 ///
-/// The vector r contains all the values of e_i, where e_i represents the individual bits of a binary representation of e.
-/// For example, let's consider e = 6, which in binary is 0b110. In this case, the vector r would be [1, 1, 0].
+/// For instance, for e = 6 (with a binary representation of 0b110), the vector r would be [1, 1, 0].
 pub struct EqPolynomial<Scalar: PrimeField> {
   r: Vec<Scalar>,
 }
 
 impl<Scalar: PrimeField> EqPolynomial<Scalar> {
-  /// Creates a new polynomial from its succinct specification
+  /// Creates a new `EqPolynomial` from a vector of Scalars `r`.
+  ///
+  /// Each Scalar in `r` corresponds to a bit from the binary representation of an input value `e`.
   pub fn new(r: Vec<Scalar>) -> Self {
     EqPolynomial { r }
   }
 
-  /// Evaluates the polynomial at the specified point
+  /// Evaluates the `EqPolynomial` at a given point `rx`.
+  ///
+  /// This function computes the value of the polynomial at the point specified by `rx`.
+  /// It expects `rx` to have the same length as the internal vector `r`.
+  ///
+  /// Panics if `rx` and `r` have different lengths.
   pub fn evaluate(&self, rx: &[Scalar]) -> Scalar {
     assert_eq!(self.r.len(), rx.len());
     (0..rx.len())
@@ -36,7 +43,9 @@ impl<Scalar: PrimeField> EqPolynomial<Scalar> {
       .fold(Scalar::ONE, |acc, item| acc * item)
   }
 
-  /// Evaluates the polynomial at all the `2^|r|` points, ranging from 0 to `2^|r| - 1`.
+  /// Evaluates the `EqPolynomial` at all the `2^|r|` points in its domain.
+  ///
+  /// Returns a vector of Scalars, each corresponding to the polynomial evaluation at a specific point.
   pub fn evals(&self) -> Vec<Scalar> {
     let ell = self.r.len();
     let mut evals: Vec<Scalar> = vec![Scalar::ZERO; (2_usize).pow(ell as u32)];
@@ -61,7 +70,7 @@ impl<Scalar: PrimeField> EqPolynomial<Scalar> {
   }
 }
 
-/// A multilinear extension of a polynomial $Z(\cdot)$, donate it as $\tilde{Z}(x_1, ..., x_m)$
+/// A multilinear extension of a polynomial $Z(\cdot)$, denote it as $\tilde{Z}(x_1, ..., x_m)$
 /// where the degree of each variable is at most one.
 ///
 /// This is the dense representation of a multilinear poynomial.
