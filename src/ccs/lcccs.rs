@@ -1,5 +1,5 @@
 use super::util::{compute_sum_Mz, VirtualPolynomial};
-use super::{CCCSInstance, CCSWitness, CCS};
+use super::{CCSWitness, CCCS, CCS};
 use crate::ccs::util::compute_all_sum_Mz_evals;
 use crate::hypercube::BooleanHypercube;
 use crate::spartan::math::Math;

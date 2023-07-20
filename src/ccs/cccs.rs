@@ -33,7 +33,7 @@ use super::CCS;
 /// A type that holds the shape of a Committed CCS (CCCS) instance
 #[derive(Clone, Debug, PartialEq, Eq /*Serialize, Deserialize*/)]
 //#[serde(bound(deserialize = "'de: 'a"))]
-pub struct CCCSInstance<G: Group> {
+pub struct CCCS<G: Group> {
   // The `z` vector used as input for this instance.
   pub(crate) z: Vec<G::Scalar>,
   // Commitment to the witness of `z`.
@@ -42,8 +42,8 @@ pub struct CCCSInstance<G: Group> {
   pub(crate) x_comm: Commitment<G>,
 }
 
-impl<G: Group> CCCSInstance<G> {
-  // Generates a new CCCSInstance given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
+impl<G: Group> CCCS<G> {
+  // Generates a new CCCS given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
   // Then, given the input vector `z`.
   pub fn new(
     ccs: &CCS<G>,
@@ -117,7 +117,7 @@ impl<G: Group> CCCSInstance<G> {
     q.build_f_hat(beta)
   }
 
-  /// Perform the check of the CCCSInstance instance described at section 4.1
+  /// Perform the check of the CCCS instance described at section 4.1
   pub fn is_sat(
     &self,
     ccs: &CCS<G>,
@@ -128,7 +128,7 @@ impl<G: Group> CCCSInstance<G> {
     // opening, but checking that the Commmitment comes from committing to the witness.
     assert_eq!(self.w_comm, CE::<G>::commit(ck, &self.z[(1 + ccs.l)..]));
 
-    // A CCCSInstance relation is satisfied if the q(x) multivariate polynomial evaluates to zero in the hypercube
+    // A CCCS relation is satisfied if the q(x) multivariate polynomial evaluates to zero in the hypercube
     let q_x = self.compute_q(ccs, ccs_mles).unwrap();
     for x in BooleanHypercube::new(ccs.s) {
       if !q_x.evaluate(&x).unwrap().is_zero().unwrap_u8() == 0 {
@@ -188,8 +188,8 @@ mod tests {
     // ensure CCS is satisfied
     ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
-    // Generate CCCSInstance artifacts
-    let cccs = CCCSInstance::new(&ccs, &mles, z, &ck);
+    // Generate CCCS artifacts
+    let cccs = CCCS::new(&ccs, &mles, z, &ck);
     let q = cccs.compute_q(&ccs, &mles).unwrap();
 
     // Evaluate inside the hypercube
@@ -216,12 +216,8 @@ mod tests {
     ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
     // Generate CCCS artifacts
-    let cccs: CCCS<Ep> = ccs_shape.to_cccs();
-
-    let beta: Vec<G::Scalar> = (0..ccs_shape.s)
-      .map(|_| G::Scalar::random(&mut rng))
-      .collect();
-
+    let cccs = CCCS::new(&ccs, &mles, z, &ck);
+    let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
     // Compute Q(x) = eq(beta, x) * q(x).
     let Q = cccs
       .compute_Q(&ccs, &mles, &ck, &beta)
@@ -257,7 +253,7 @@ mod tests {
     ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
     // Generate CCCS artifacts
-    let cccs = CCCSInstance::new(&ccs, &mles, z, &ck);
+    let cccs = CCCS::new(&ccs, &mles, z, &ck);
     // Now test that if we create Q(x) with eq(d,y) where d is inside the hypercube, \sum Q(x) should be G(d) which
     // should be equal to q(d), since G(x) interpolates q(x) inside the hypercube
     let q = cccs

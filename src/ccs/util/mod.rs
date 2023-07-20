@@ -113,7 +113,7 @@ pub fn compute_all_sum_Mz_evals<G: Group>(
 
 #[cfg(test)]
 mod tests {
-  use crate::ccs::cccs::CCCSInstance;
+  use crate::ccs::cccs::CCCS;
 
   use super::*;
   use pasta_curves::{Ep, Fq};
@@ -189,7 +189,7 @@ mod tests {
     // Generate other artifacts
     let ck = CCS::<Ep>::commitment_key(&ccs);
     let z_mle = dense_vec_to_mle(ccs.s_prime, &z);
-    let cccs = CCCSInstance::new(&ccs, &mles, z, &ck);
+    let cccs = CCCS::new(&ccs, &mles, z, &ck);
 
     // check that evaluating over all the values x over the boolean hypercube, the result of
     // the next for loop is equal to 0

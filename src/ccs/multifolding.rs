@@ -1,4 +1,4 @@
-use super::cccs::{self, CCCSInstance};
+use super::cccs::{self, CCCS};
 use super::lcccs::LCCCS;
 use super::util::{compute_sum_Mz, VirtualPolynomial};
 use super::{CCSWitness, CCS};
@@ -32,9 +32,9 @@ use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 use std::sync::Arc;
 
-// XXX: THe idea is to have Multifolding as IVC instance in the future, holding the main CCS
-// instances. Then the rest of CCS, CCCS, LCCCS hold references to it.
-// Is our single source of data.
+/// The Multifolding structure is the center of operations of the folding scheme.
+/// Once generated, it allows us to fold any upcomming CCCS instances within it without needing to do much.
+// XXX: Pending to add doc examples.
 #[derive(Debug)]
 pub struct Multifolding<G: Group> {
   ccs: CCS<G>,
@@ -143,7 +143,7 @@ impl<G: Group> Multifolding<G> {
   /// Compute g(x) polynomial for the given inputs.
   pub fn compute_g(
     &self,
-    cccs_instance: &CCCSInstance<G>,
+    cccs_instance: &CCCS<G>,
     gamma: G::Scalar,
     beta: &[G::Scalar],
   ) -> VirtualPolynomial<G::Scalar> {
@@ -167,14 +167,14 @@ impl<G: Group> Multifolding<G> {
     g
   }
 
-  // XXX: Add some docs
-  pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs2: CCCSInstance<G>, rho: G::Scalar) {
+  /// This folds an upcomming CCCS instance into the LCCCS instance contained within the Multifolding object.
+  pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs2: CCCS<G>, rho: G::Scalar) {
     // Compute r_x_prime from a given randomnes.
     let r_x_prime = vec![G::Scalar::random(&mut rng); self.ccs.s];
     // Compute sigmas an thetas to fold `v`s.
     let (sigmas, thetas) = self.compute_sigmas_and_thetas(&cccs2.z, &r_x_prime);
 
-    // Compute sigmas an thetas based on r_x_prime.
+    // Compute new v from sigmas and thetas.
     let folded_v: Vec<G::Scalar> = sigmas
       .iter()
       .zip(
@@ -187,14 +187,13 @@ impl<G: Group> Multifolding<G> {
       .collect();
 
     self.lcccs.w_comm += cccs2.w_comm.mul(rho);
-    // XXX: Mutably modify.
     self.lcccs.v = folded_v;
     self.lcccs.r_x = r_x_prime;
     self.fold_z(cccs2, rho);
   }
 
-  // XXX: Add docs
-  fn fold_z(&mut self, cccs: CCCSInstance<G>, rho: G::Scalar) {
+  /// Folds the current `z` vector of the upcomming CCCS instance together with the LCCCS instance that is contained inside of the Multifolding object.
+  fn fold_z(&mut self, cccs: CCCS<G>, rho: G::Scalar) {
     // Update u first.
     self.lcccs.z[0] += rho;
     self.lcccs.z[1..]
@@ -244,7 +243,7 @@ mod tests {
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
-    let cccs_instance = CCCSInstance::new(&ccs, &mles, z2, &ck);
+    let cccs_instance = CCCS::new(&ccs, &mles, z2, &ck);
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs_instance.v.len() {
@@ -302,7 +301,7 @@ mod tests {
     let r_x_prime: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
-    let cccs = CCCSInstance::new(&ccs, &mles, z2, &ck);
+    let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
     // Generate a new multifolding instance
     let nimfs = NIMFS::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
@@ -365,7 +364,7 @@ mod tests {
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
-    let cccs = CCCSInstance::new(&ccs, &mles, z2, &ck);
+    let cccs = CCCS::new(&ccs, &mles, z2, &ck);
     assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
 
     // Generate a new multifolding instance

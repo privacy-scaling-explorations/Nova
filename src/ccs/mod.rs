@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 
-use self::cccs::CCCSInstance;
+use self::cccs::CCCS;
 use self::lcccs::LCCCS;
 use self::util::compute_all_sum_Mz_evals;
 
@@ -187,6 +187,7 @@ impl<G: Group> CCS<G> {
     }
   }
 
+  /// Generate a CCS instance from an [`R1CSShape`] instance.
   pub fn from_r1cs(r1cs: R1CSShape<G>) -> Self {
     // These contants are used for R1CS-to-CCS, see the paper for more details
     const T: usize = 3;
