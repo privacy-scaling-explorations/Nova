@@ -59,6 +59,9 @@ impl<G: Group> NIMFS<G> {
     }
   }
 
+  /// Initializes a NIMFS instance given the CCS of it and a first witness vector that satifies it.
+  // XXX: This should probably return an error as we should check whether is satisfied or not.
+  // XXX: This should not ask for the MLEs and should compute them inside.
   pub fn init<R: RngCore>(
     mut rng: &mut R,
     ccs: CCS<G>,
@@ -83,6 +86,7 @@ impl<G: Group> NIMFS<G> {
     }
   }
 
+  /// This function checks whether the current IVC after the last fold performed is satisfied and returns an error if it isn't.
   pub fn is_sat(&self) -> Result<(), NovaError> {
     self.lcccs.is_sat(&self.ccs, &self.ccs_mle, &self.ck)
   }

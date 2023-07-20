@@ -43,8 +43,8 @@ pub struct CCCS<G: Group> {
 }
 
 impl<G: Group> CCCS<G> {
-  // Generates a new CCCS given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
-  // Then, given the input vector `z`.
+  /// Generates a new CCCS given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
+  /// Then, given the input vector `z`.
   pub fn new(
     ccs: &CCS<G>,
     ccs_matrix_mle: &Vec<MultilinearPolynomial<G::Scalar>>,
@@ -61,9 +61,9 @@ impl<G: Group> CCCS<G> {
     }
   }
 
-  // Computes q(x) = \sum^q c_i * \prod_{j \in S_i} ( \sum_{y \in {0,1}^s'} M_j(x, y) * z(y) )
-  // polynomial over x
-  pub fn compute_q(
+  /// Computes q(x) = \sum^q c_i * \prod_{j \in S_i} ( \sum_{y \in {0,1}^s'} M_j(x, y) * z(y) )
+  /// polynomial over x
+  pub(crate) fn compute_q(
     &self,
     ccs: &CCS<G>,
     ccs_mles: &[MultilinearPolynomial<G::Scalar>],

@@ -37,7 +37,7 @@ pub struct LCCCS<G: Group> {
   pub(crate) w_comm: Commitment<G>,
   pub(crate) v: Vec<G::Scalar>,
   // Random evaluation point for the v_i
-  pub r_x: Vec<G::Scalar>,
+  pub(crate) r_x: Vec<G::Scalar>,
   pub(crate) z: Vec<G::Scalar>,
 }
 
