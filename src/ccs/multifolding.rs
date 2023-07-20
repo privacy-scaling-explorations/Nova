@@ -224,8 +224,6 @@ mod tests {
   use crate::ccs::{test, util::virtual_poly::build_eq_x_r};
   use pasta_curves::{Ep, Fq};
   use rand_core::OsRng;
-  // NIMFS: Non Interactive NIMFS Scheme
-  type NIMFS = NIMFS<Ep>;
 
   fn test_compute_g_with<G: Group>() {
     let z1 = CCS::<G>::get_test_z(3);
@@ -251,7 +249,7 @@ mod tests {
       sum_v_j_gamma += lcccs.v[j] * gamma_j;
     }
 
-    let nimfs = NIMFS::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
+    let nimfs = NIMFS::<Ep>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
     // Compute g(x) with that r_x
     let g = nimfs.compute_g(&cccs_instance, gamma, &beta);
@@ -304,7 +302,7 @@ mod tests {
     let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
     // Generate a new NIMFS instance
-    let nimfs = NIMFS::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
+    let nimfs = NIMFS::<Ep>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
     // XXX: This needs to be properly thought?
     let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
