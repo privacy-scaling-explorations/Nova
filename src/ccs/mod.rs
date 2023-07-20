@@ -470,7 +470,6 @@ pub mod test {
     // generate generators and ro constants
     let _ck = S.commitment_key();
     let _ro_consts = <G::RO as ROTrait<G::Base, G::Scalar>>::Constants::new();
-    //      <<G as Group>::RO as ROTrait<<G as Group>::Base, <G as Group>::Scalar>>::Constants::new();
 
     // 3. Test that CCS is satisfiable
     let _rand_inst_witness_generator =
