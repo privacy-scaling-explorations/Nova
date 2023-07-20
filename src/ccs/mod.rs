@@ -32,9 +32,10 @@ use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 
-use self::cccs::CCCS;
-use self::lcccs::LCCCS;
-use self::util::compute_all_sum_Mz_evals;
+pub use cccs::CCCS;
+pub use lcccs::LCCCS;
+pub use multifolding::NIMFS;
+use util::compute_all_sum_Mz_evals;
 
 mod cccs;
 mod lcccs;
@@ -115,6 +116,11 @@ impl<G: Group> CCS<G> {
       s,
       s_prime,
     }
+  }
+
+  /// Returns the multilinear extension of the CCS matrixes.
+  pub fn matrix_mles(&self) -> Vec<MultilinearPolynomial<G::Scalar>> {
+    self.M.iter().map(|matrix| matrix.to_mle()).collect()
   }
 
   /// Compute v_j values of the linearized committed CCS form
