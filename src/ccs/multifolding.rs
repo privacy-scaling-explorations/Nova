@@ -176,7 +176,6 @@ impl<G: Group> Multifolding<G> {
     r_x_prime: Vec<G::Scalar>,
     rho: G::Scalar,
   ) {
-    let w_folded_comm = self.lcccs.w_comm + cccs2.w_comm.mul(rho);
     let folded_u = self.lcccs.u + rho;
     let folded_v: Vec<G::Scalar> = sigmas
       .iter()
@@ -189,10 +188,10 @@ impl<G: Group> Multifolding<G> {
       .map(|(a_i, b_i)| *a_i + b_i)
       .collect();
 
-    // XXX: Update NIMFS LCCCS instance. (This should be done via a fn);
-    self.lcccs.w_comm = w_folded_comm;
+    self.lcccs.w_comm += cccs2.w_comm.mul(rho);
     self.lcccs.u = folded_u;
     self.lcccs.v = folded_v;
+    self.lcccs.r_x = r_x_prime;
     self.fold_z(cccs2, rho);
   }
 
@@ -200,12 +199,7 @@ impl<G: Group> Multifolding<G> {
   fn fold_z(&mut self, cccs: CCCSInstance<G>, rho: G::Scalar) {
     self.lcccs.z[1..]
       .iter_mut()
-      .zip(
-        cccs.z[1..]
-          .iter()
-          .map(|x_i| *x_i * rho)
-          .collect::<Vec<G::Scalar>>(),
-      )
+      .zip(cccs.z[1..].iter().map(|x_i| *x_i * rho))
       .for_each(|(a_i, b_i)| *a_i += b_i);
 
     // XXX: There's no handling of r_w atm. So we will ingore until all folding is implemented,
