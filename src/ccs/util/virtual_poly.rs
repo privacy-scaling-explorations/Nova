@@ -1,6 +1,6 @@
 use crate::hypercube::BooleanHypercube;
 use crate::spartan::math::Math;
-use crate::spartan::polynomial::MultilinearPolynomial;
+use crate::spartan::polynomial::{EqPolynomial, MultilinearPolynomial};
 use crate::{
   constants::{BN_LIMB_WIDTH, BN_N_LIMBS, NUM_FE_FOR_RO, NUM_HASH_BITS},
   errors::NovaError,
@@ -293,6 +293,19 @@ impl<F: PrimeField> VirtualPolynomial<F> {
     Ok(poly)
   }
 
+  // XXX: Remove me, temp for debugging
+  pub fn build_f_hat_old(&self, r: &[F]) -> Result<Self, NovaError> {
+    if self.aux_info.num_variables != r.len() {
+      return Err(NovaError::VpArith);
+    }
+
+    let eq_x_r_old = build_eq_x_r(r)?;
+    let mut res = self.clone();
+    res.mul_by_mle(eq_x_r_old, F::ONE)?;
+
+    Ok(res)
+  }
+
   // Input poly f(x) and a random vector r, output
   //      \hat f(x) = \sum_{x_i \in eval_x} f(x_i) eq(x, r)
   // where
@@ -304,9 +317,32 @@ impl<F: PrimeField> VirtualPolynomial<F> {
       return Err(NovaError::VpArith);
     }
 
-    let eq_x_r = build_eq_x_r(r)?;
+    // FIXME: eq_x_r_old and eq_x_r_new produce the same evals but in a different order
+    //
+    // Here's the ordering for 2^3 entries:
+    // eq_x_r_old Z: [A, B, C, D, E, F, G, H]
+    // eq_x_r_new Z: [A, E, C, G, B, F, D, H]
+    //
+    // Permutation: (1,5,3,7,2,6,4,8)
+    //
+    // This corresponds to swapped endianness of binary representation,
+    // e.g. (000, 001, 010, ...) -> (000, 100, 010, ...)
+    // See `build_eq_x_r_helper` helper below
+
+    // Old version of eq_x_r using `virtual_poly.rs`
+    let eq_x_r_old = build_eq_x_r(r)?;
+
+    // New version of eq_x_r using `polynomial.rs`
+    let eq_polynomial = EqPolynomial::new(r.to_vec());
+    let evaluations = eq_polynomial.evals();
+    let multilinear_poly = MultilinearPolynomial::new(evaluations);
+    let eq_x_r_new = Arc::new(multilinear_poly);
+
+    dbg!(eq_x_r_old.Z.clone());
+    dbg!(eq_x_r_new.Z.clone());
+
     let mut res = self.clone();
-    res.mul_by_mle(eq_x_r, F::ONE)?;
+    res.mul_by_mle(eq_x_r_new, F::ONE)?;
 
     Ok(res)
   }
@@ -320,6 +356,7 @@ impl<F: PrimeField> VirtualPolynomial<F> {
 ///      eq(x,y) = \prod_i=1^num_var (x_i * r_i + (1-x_i)*(1-r_i))
 pub fn build_eq_x_r<F: PrimeField>(r: &[F]) -> Result<Arc<MultilinearPolynomial<F>>, NovaError> {
   let evals = build_eq_x_r_vec(r)?;
+
   let mle = MultilinearPolynomial::new(evals);
 
   Ok(Arc::new(mle))
@@ -494,5 +531,63 @@ mod test {
     let mle = MultilinearPolynomial::new(eval);
 
     Arc::new(mle)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use pasta_curves::Fq;
+  use rand_core::OsRng;
+
+  #[test]
+  fn test_build_f_hat() {
+    let mut rng = OsRng;
+    let num_vars = 3; // You can change this value according to your requirement
+
+    // Create a VirtualPolynomial
+    let poly = VirtualPolynomial::<Fq>::new(num_vars);
+    let r: Vec<Fq> = (0..num_vars).map(|_| Fq::random(&mut rng)).collect();
+
+    // Test with correct input length
+    let result = poly.build_f_hat(&r);
+    assert!(result.is_ok(), "Failed with correct input length");
+
+    // Test with incorrect input length
+    let bad_r: Vec<Fq> = (0..num_vars + 1).map(|_| Fq::random(&mut rng)).collect();
+    let result = poly.build_f_hat(&bad_r);
+    assert!(
+      matches!(result, Err(NovaError::VpArith)),
+      "Did not fail with incorrect input length"
+    );
+  }
+
+  #[test]
+  fn test_eq_x_r_equality() {
+    let mut rng = OsRng;
+
+    for num_vars in 1..=3 {
+      // Generate random inputs
+      let r: Vec<Fq> = (0..num_vars).map(|_| Fq::random(&mut rng)).collect();
+
+      // Old version of eq_x_r using `virtual_poly.rs`
+      let eq_x_r_old = build_eq_x_r(&r).unwrap().clone();
+
+      // New version of eq_x_r using `polynomial.rs`
+      let eq_polynomial = EqPolynomial::new(r.to_vec());
+      let evaluations = eq_polynomial.evals();
+      let multilinear_poly = MultilinearPolynomial::new(evaluations);
+      let eq_x_r_new = Arc::new(multilinear_poly);
+
+      dbg!(eq_x_r_old.Z.clone());
+      dbg!(eq_x_r_new.Z.clone());
+
+      // Check equality of the results
+      assert_eq!(
+        eq_x_r_old.Z, eq_x_r_new.Z,
+        "eq_x_r_old.Z and eq_x_r.Z outputs are not equal for num_vars = {}",
+        num_vars
+      );
+    }
   }
 }

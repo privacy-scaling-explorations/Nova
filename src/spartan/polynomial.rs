@@ -66,9 +66,12 @@ impl<Scalar: PrimeField> EqPolynomial<Scalar> {
 
       size *= 2;
     }
+
     evals
   }
 }
+
+// TODO Update these docs too
 
 /// A multilinear extension of a polynomial $Z(\cdot)$, denote it as $\tilde{Z}(x_1, ..., x_m)$
 /// where the degree of each variable is at most one.

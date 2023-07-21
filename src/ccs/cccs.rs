@@ -107,8 +107,14 @@ impl<G: Group> CCCS<G> {
     ccs_mles: &[MultilinearPolynomial<G::Scalar>],
     beta: &[G::Scalar],
   ) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
-    let q = self.compute_q(ccs, ccs_mles)?;
-    q.build_f_hat(beta)
+    // XXX:     let q = self.compute_q(ccs, ccs_mles)?;
+    let q = self.compute_q(z)?;
+    let qfhat_old = q.build_f_hat_old(beta);
+    let qfhat_new = q.build_f_hat(beta);
+    dbg!(qfhat_old.clone());
+    dbg!(qfhat_new.clone());
+
+    qfhat_new
   }
 
   /// Perform the check of the CCCS instance described at section 4.1
