@@ -88,7 +88,6 @@ fn fix_one_variable_helper<F: PrimeField>(data: &[F], nv: usize, point: &F) -> V
 /// for all j values in 0..self.t
 pub fn compute_all_sum_Mz_evals<G: Group>(
   M_x_y_mle: &[MultilinearPolynomial<G::Scalar>],
-  // XXX: Can we just get the MLE?
   z: &[G::Scalar],
   r: &[G::Scalar],
   s_prime: usize,

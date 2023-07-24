@@ -61,7 +61,6 @@ impl<G: Group> NIMFS<G> {
 
   /// Initializes a NIMFS instance given the CCS of it and a first witness vector that satifies it.
   // XXX: This should probably return an error as we should check whether is satisfied or not.
-  // XXX: This should not ask for the MLEs and should compute them inside.
   pub fn init<R: RngCore>(mut rng: &mut R, ccs: CCS<G>, z: Vec<G::Scalar>) -> Self {
     let ccs_mle: Vec<MultilinearPolynomial<G::Scalar>> =
       ccs.M.iter().map(|matrix| matrix.to_mle()).collect();
@@ -160,7 +159,7 @@ impl<G: Group> NIMFS<G> {
       .expect("Q comp should not fail");
 
     let mut g = vec_L[0].clone();
-    // XXX: This can probably be done with Iter::reduce
+
     for (j, L_j) in vec_L.iter_mut().enumerate().skip(1) {
       let gamma_j = gamma.pow([j as u64]);
       L_j.scalar_mul(&gamma_j);
@@ -313,7 +312,6 @@ mod tests {
     // Generate a new NIMFS instance
     let nimfs = NIMFS::<Ep>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
-    // XXX: This needs to be properly thought?
     let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
 
     let g = nimfs.compute_g(&cccs, gamma, &beta);
