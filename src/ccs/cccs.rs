@@ -44,7 +44,7 @@ impl<G: Group> CCCS<G> {
   /// Generates a new CCCS given a reference to it's original CCS repr and it's public and private inputs.
   pub(crate) fn new(
     ccs: &CCS<G>,
-    ccs_matrix_mle: &Vec<MultilinearPolynomial<G::Scalar>>,
+    ccs_matrix_mle: &[MultilinearPolynomial<G::Scalar>],
     z: Vec<G::Scalar>,
     ck: &CommitmentKey<G>,
   ) -> Self {

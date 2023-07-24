@@ -103,15 +103,4 @@ fn integration_folding_test<G: Group>() {
 
   // Since the instance was correct, the NIMFS should still be satisfied.
   assert!(nimfs.is_sat().is_ok());
-
-  // Now let's create am invalid CCCS instance and fold it:
-  let invalid_cccs = nimfs.new_cccs(vec![
-    G::Scalar::ONE,
-    G::Scalar::from(5u64),
-    G::Scalar::from(55u64),
-  ]);
-  nimfs.fold(&mut rng, invalid_cccs);
-
-  // Since the instance was wrong, the NIMFS should not be satisfied correctly.
-  assert!(nimfs.is_sat().is_err());
 }

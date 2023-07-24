@@ -126,7 +126,7 @@ impl<G: Group> CCS<G> {
     r: &[G::Scalar],
     ccs_matrix_mles: &[MultilinearPolynomial<G::Scalar>],
   ) -> Vec<G::Scalar> {
-    compute_all_sum_Mz_evals::<G>(ccs_matrix_mles, &z.to_vec(), r, self.s_prime)
+    compute_all_sum_Mz_evals::<G>(ccs_matrix_mles, z, r, self.s_prime)
   }
 
   // XXX: Update commitment_key variables here? This is currently based on R1CS with M length
