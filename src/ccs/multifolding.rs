@@ -32,7 +32,7 @@ use sha3::{Digest, Sha3_256};
 use std::ops::{Add, Mul};
 use std::sync::Arc;
 
-/// The NIMFS structure is the center of operations of the folding scheme.
+/// The NIMFS (Non-Interactive MultiFolding Scheme) structure is the center of operations of the folding scheme.
 /// Once generated, it allows us to fold any upcomming CCCS instances within it without needing to do much.
 // XXX: Pending to add doc examples.
 #[derive(Debug)]
@@ -44,7 +44,7 @@ pub struct NIMFS<G: Group> {
 }
 
 impl<G: Group> NIMFS<G> {
-  /// Generates a new NIMFS instance based on the given CCS.
+  /// Generates a new NIMFS instance based on the given CCS instance, it's matrix mle's, an existing LCCCS instance and a commitment key to the CCS.
   pub fn new(
     ccs: CCS<G>,
     ccs_mle: Vec<MultilinearPolynomial<G::Scalar>>,
@@ -176,7 +176,7 @@ impl<G: Group> NIMFS<G> {
     g
   }
 
-  /// This folds an upcomming CCCS instance into the LCCCS instance contained within the NIMFS object.
+  /// This folds an upcoming CCCS instance into the running LCCCS instance contained within the NIMFS object.
   pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs: CCCS<G>) {
     // Compute r_x_prime and rho from a given randomnes.
     let r_x_prime = vec![G::Scalar::random(&mut rng); self.ccs.s];
@@ -197,6 +197,7 @@ impl<G: Group> NIMFS<G> {
       .map(|(a_i, b_i)| *a_i + b_i)
       .collect();
 
+    // Here we perform steps 7 & 8 of the section 5 of the paper. Were we actually fold LCCCS & CCCS instances.
     self.lcccs.w_comm += cccs.w_comm.mul(rho);
     self.lcccs.v = folded_v;
     self.lcccs.r_x = r_x_prime;
@@ -373,17 +374,19 @@ mod tests {
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
-    let cccs = CCCS::new(&ccs, &mles, z2, &ck);
-    assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
-
     // Generate a new NIMFS instance
-    let mut nimfs = NIMFS::init(&mut rng, ccs, mles, z1);
+    let mut nimfs = NIMFS::init(&mut rng, ccs.clone(), mles.clone(), z1);
     assert!(nimfs.is_sat().is_ok());
 
-    let rho = Fq::random(&mut rng);
+    // Folding garbage should cause a failure
+    let cccs = nimfs.gen_cccs(vec![Fq::ONE, Fq::ONE, Fq::ONE]);
     nimfs.fold(&mut rng, cccs);
+    assert!(nimfs.is_sat().is_err());
 
     // check folding correct stuff still alows the NIMFS to be satisfied correctly.
+    let cccs = nimfs.gen_cccs(z2);
+    assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
+    nimfs.fold(&mut rng, cccs);
     assert!(nimfs.is_sat().is_ok());
   }
 

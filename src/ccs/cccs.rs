@@ -31,37 +31,28 @@ use super::util::virtual_poly::VirtualPolynomial;
 use super::CCS;
 
 /// A type that holds the shape of a Committed CCS (CCCS) instance
-#[derive(Clone, Debug, PartialEq, Eq /*Serialize, Deserialize*/)]
-//#[serde(bound(deserialize = "'de: 'a"))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct CCCS<G: Group> {
   // The `z` vector used as input for this instance.
   pub(crate) z: Vec<G::Scalar>,
   // Commitment to the witness of `z`.
   pub(crate) w_comm: Commitment<G>,
-  // Commitment to the public inputs of `z`.
-  pub(crate) x_comm: Commitment<G>,
 }
 
 impl<G: Group> CCCS<G> {
-  /// Generates a new CCCS given a reference to it's original CCS repr & the multilinear extension of it's matrixes.
-  /// Then, given the input vector `z`.
+  /// Generates a new CCCS given a reference to it's original CCS repr and it's public and private inputs.
   pub(crate) fn new(
     ccs: &CCS<G>,
     ccs_matrix_mle: &Vec<MultilinearPolynomial<G::Scalar>>,
     z: Vec<G::Scalar>,
     ck: &CommitmentKey<G>,
   ) -> Self {
-    let x_comm = if ccs.l != 0 {
-      CE::<G>::commit(ck, &z[1..ccs.l + 1])
-    } else {
-      Commitment::<G>::default()
-    };
     let w_comm = CE::<G>::commit(ck, &z[(1 + ccs.l)..]);
 
     Self {
       z: z.to_vec(),
       w_comm,
-      x_comm,
     }
   }
 
@@ -142,14 +133,6 @@ impl<G: Group> CCCS<G> {
 
     Ok(())
   }
-
-  // XXX: Pending to add a commit fn:
-
-  // let w: Vec<G::Scalar> = z[(1 + self.l)..].to_vec();
-  // XXX: API doesn't offer a way to handle this apparently?
-  // Need to investigate
-  // let _r_w = G::Scalar::random(rng);
-  // let C = <<G as Group>::CE as CommitmentEngineTrait<G>>::commit(ck, &w);
 }
 
 #[cfg(test)]

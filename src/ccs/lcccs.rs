@@ -44,6 +44,7 @@ pub struct LCCCS<G: Group> {
 impl<G: Group> LCCCS<G> {
   /// Generates a new LCCCS instance from a given randomness, CommitmentKey & witness input vector.
   /// This should only be used to probably test or setup the initial NIMFS instance.
+  #[cfg(test)]
   pub(crate) fn new<R: RngCore>(
     ccs: &CCS<G>,
     ccs_m_mle: &[MultilinearPolynomial<G::Scalar>],
@@ -69,12 +70,15 @@ impl<G: Group> LCCCS<G> {
     ccs_m_mle: &[MultilinearPolynomial<G::Scalar>],
     ck: &CommitmentKey<G>,
   ) -> Result<(), NovaError> {
+    dbg!(self.z.clone());
     let w = &self.z[(1 + ccs.l)..];
     // check that C is the commitment of w. Notice that this is not verifying a Pedersen
     // opening, but checking that the Commmitment comes from committing to the witness.
     let comm_eq = self.w_comm == CE::<G>::commit(ck, w);
 
     let computed_v = compute_all_sum_Mz_evals::<G>(ccs_m_mle, &self.z, &self.r_x, ccs.s_prime);
+    dbg!(self.v.clone());
+    dbg!(computed_v.clone());
     let vs_eq = computed_v == self.v;
 
     if vs_eq && comm_eq {
@@ -84,8 +88,7 @@ impl<G: Group> LCCCS<G> {
     }
   }
 
-  /// Compute all L_j(x) polynomials
-  // Can we recieve the MLE of z directy?
+  /// Compute all L_j(x) polynomials.
   pub fn compute_Ls(
     &self,
     ccs: &CCS<G>,
