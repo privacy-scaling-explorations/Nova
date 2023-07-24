@@ -294,17 +294,17 @@ impl<F: PrimeField> VirtualPolynomial<F> {
   }
 
   // XXX: Remove me, temp for debugging
-  pub fn build_f_hat_old(&self, r: &[F]) -> Result<Self, NovaError> {
-    if self.aux_info.num_variables != r.len() {
-      return Err(NovaError::VpArith);
-    }
+  // pub fn build_f_hat_old(&self, r: &[F]) -> Result<Self, NovaError> {
+  //   if self.aux_info.num_variables != r.len() {
+  //     return Err(NovaError::VpArith);
+  //   }
 
-    let eq_x_r_old = build_eq_x_r(r)?;
-    let mut res = self.clone();
-    res.mul_by_mle(eq_x_r_old, F::ONE)?;
+  //   let eq_x_r_old = build_eq_x_r(r)?;
+  //   let mut res = self.clone();
+  //   res.mul_by_mle(eq_x_r_old, F::ONE)?;
 
-    Ok(res)
-  }
+  //   Ok(res)
+  // }
 
   // Input poly f(x) and a random vector r, output
   //      \hat f(x) = \sum_{x_i \in eval_x} f(x_i) eq(x, r)
@@ -330,7 +330,7 @@ impl<F: PrimeField> VirtualPolynomial<F> {
     // See `build_eq_x_r_helper` helper below
 
     // Old version of eq_x_r using `virtual_poly.rs`
-    let eq_x_r_old = build_eq_x_r(r)?;
+    // let eq_x_r_old = build_eq_x_r(r)?;
 
     // New version of eq_x_r using `polynomial.rs`
     let eq_polynomial = EqPolynomial::new(r.to_vec());
@@ -338,7 +338,7 @@ impl<F: PrimeField> VirtualPolynomial<F> {
     let multilinear_poly = MultilinearPolynomial::new(evaluations);
     let eq_x_r_new = Arc::new(multilinear_poly);
 
-    dbg!(eq_x_r_old.Z.clone());
+    // dbg!(eq_x_r_old.Z.clone());
     dbg!(eq_x_r_new.Z.clone());
 
     let mut res = self.clone();
@@ -354,13 +354,13 @@ impl<F: PrimeField> VirtualPolynomial<F> {
 ///      eq(x,y) = \prod_i=1^num_var (x_i * y_i + (1-x_i)*(1-y_i))
 /// over r, which is
 ///      eq(x,y) = \prod_i=1^num_var (x_i * r_i + (1-x_i)*(1-r_i))
-pub fn build_eq_x_r<F: PrimeField>(r: &[F]) -> Result<Arc<MultilinearPolynomial<F>>, NovaError> {
-  let evals = build_eq_x_r_vec(r)?;
+// pub fn build_eq_x_r<F: PrimeField>(r: &[F]) -> Result<Arc<MultilinearPolynomial<F>>, NovaError> {
+//   let evals = build_eq_x_r_vec(r)?;
 
-  let mle = MultilinearPolynomial::new(evals);
+//   let mle = MultilinearPolynomial::new(evals);
 
-  Ok(Arc::new(mle))
-}
+//   Ok(Arc::new(mle))
+// }
 
 /// This function build the eq(x, r) polynomial for any given r, and output the
 /// evaluation of eq(x, r) in its vector form.
@@ -369,64 +369,64 @@ pub fn build_eq_x_r<F: PrimeField>(r: &[F]) -> Result<Arc<MultilinearPolynomial<
 ///      eq(x,y) = \prod_i=1^num_var (x_i * y_i + (1-x_i)*(1-y_i))
 /// over r, which is
 ///      eq(x,y) = \prod_i=1^num_var (x_i * r_i + (1-x_i)*(1-r_i))
-pub fn build_eq_x_r_vec<F: PrimeField>(r: &[F]) -> Result<Vec<F>, NovaError> {
-  // we build eq(x,r) Fpom its evaluations
-  // we want to evaluate eq(x,r) over x \in {0, 1}^num_vars
-  // for example, with num_vars = 4, x is a binary vector of 4, then
-  //  0 0 0 0 -> (1-r0)   * (1-r1)    * (1-r2)    * (1-r3)
-  //  1 0 0 0 -> r0       * (1-r1)    * (1-r2)    * (1-r3)
-  //  0 1 0 0 -> (1-r0)   * r1        * (1-r2)    * (1-r3)
-  //  1 1 0 0 -> r0       * r1        * (1-r2)    * (1-r3)
-  //  ....
-  //  1 1 1 1 -> r0       * r1        * r2        * r3
-  // we will need 2^num_var evaluations
+// pub fn build_eq_x_r_vec<F: PrimeField>(r: &[F]) -> Result<Vec<F>, NovaError> {
+//   // we build eq(x,r) Fpom its evaluations
+//   // we want to evaluate eq(x,r) over x \in {0, 1}^num_vars
+//   // for example, with num_vars = 4, x is a binary vector of 4, then
+//   //  0 0 0 0 -> (1-r0)   * (1-r1)    * (1-r2)    * (1-r3)
+//   //  1 0 0 0 -> r0       * (1-r1)    * (1-r2)    * (1-r3)
+//   //  0 1 0 0 -> (1-r0)   * r1        * (1-r2)    * (1-r3)
+//   //  1 1 0 0 -> r0       * r1        * (1-r2)    * (1-r3)
+//   //  ....
+//   //  1 1 1 1 -> r0       * r1        * r2        * r3
+//   // we will need 2^num_var evaluations
 
-  let mut eval = Vec::new();
-  build_eq_x_r_helper(r, &mut eval)?;
+//   let mut eval = Vec::new();
+//   build_eq_x_r_helper(r, &mut eval)?;
 
-  Ok(eval)
-}
+//   Ok(eval)
+// }
 
 /// A helper function to build eq(x, r) recursively.
 /// This function takes `r.len()` steps, and for each step it requires a maximum
 /// `r.len()-1` multiplications.
-fn build_eq_x_r_helper<F: PrimeField>(r: &[F], buf: &mut Vec<F>) -> Result<(), NovaError> {
-  if r.is_empty() {
-    return Err(NovaError::VpArith);
-  } else if r.len() == 1 {
-    // initializing the buffer with [1-r_0, r_0]
-    buf.push(F::ONE - r[0]);
-    buf.push(r[0]);
-  } else {
-    build_eq_x_r_helper(&r[1..], buf)?;
+// fn build_eq_x_r_helper<F: PrimeField>(r: &[F], buf: &mut Vec<F>) -> Result<(), NovaError> {
+//   if r.is_empty() {
+//     return Err(NovaError::VpArith);
+//   } else if r.len() == 1 {
+//     // initializing the buffer with [1-r_0, r_0]
+//     buf.push(F::ONE - r[0]);
+//     buf.push(r[0]);
+//   } else {
+//     build_eq_x_r_helper(&r[1..], buf)?;
 
-    // suppose at the previous step we received [b_1, ..., b_k]
-    // for the current step we will need
-    // if x_0 = 0:   (1-r0) * [b_1, ..., b_k]
-    // if x_0 = 1:   r0 * [b_1, ..., b_k]
-    // let mut res = vec![];
-    // for &b_i in buf.iter() {
-    //     let tmp = r[0] * b_i;
-    //     res.push(b_i - tmp);
-    //     res.push(tmp);
-    // }
-    // *buf = res;
+//     // suppose at the previous step we received [b_1, ..., b_k]
+//     // for the current step we will need
+//     // if x_0 = 0:   (1-r0) * [b_1, ..., b_k]
+//     // if x_0 = 1:   r0 * [b_1, ..., b_k]
+//     // let mut res = vec![];
+//     // for &b_i in buf.iter() {
+//     //     let tmp = r[0] * b_i;
+//     //     res.push(b_i - tmp);
+//     //     res.push(tmp);
+//     // }
+//     // *buf = res;
 
-    let mut res = vec![F::ZERO; buf.len() << 1];
-    res.par_iter_mut().enumerate().for_each(|(i, val)| {
-      let bi = buf[i >> 1];
-      let tmp = r[0] * bi;
-      if i & 1 == 0 {
-        *val = bi - tmp;
-      } else {
-        *val = tmp;
-      }
-    });
-    *buf = res;
-  }
+//     let mut res = vec![F::ZERO; buf.len() << 1];
+//     res.par_iter_mut().enumerate().for_each(|(i, val)| {
+//       let bi = buf[i >> 1];
+//       let tmp = r[0] * bi;
+//       if i & 1 == 0 {
+//         *val = bi - tmp;
+//       } else {
+//         *val = tmp;
+//       }
+//     });
+//     *buf = res;
+//   }
 
-  Ok(())
-}
+//   Ok(())
+// }
 
 #[cfg(test)]
 mod test {
@@ -483,55 +483,55 @@ mod test {
     Ok(())
   }
 
-  #[test]
-  fn test_eq_xr() {
-    let mut rng = OsRng;
-    for nv in 4..10 {
-      let r: Vec<Fp> = (0..nv).map(|_| Fp::random(&mut rng)).collect();
-      let eq_x_r = build_eq_x_r(r.as_ref()).unwrap();
-      let eq_x_r2 = build_eq_x_r_for_test(r.as_ref());
-      assert_eq!(eq_x_r, eq_x_r2);
-    }
-  }
+  // #[test]
+  // fn test_eq_xr() {
+  //   let mut rng = OsRng;
+  //   for nv in 4..10 {
+  //     let r: Vec<Fp> = (0..nv).map(|_| Fp::random(&mut rng)).collect();
+  //     let eq_x_r = build_eq_x_r(r.as_ref()).unwrap();
+  //     let eq_x_r2 = build_eq_x_r_for_test(r.as_ref());
+  //     assert_eq!(eq_x_r, eq_x_r2);
+  //   }
+  // }
 
-  /// Naive method to build eq(x, r).
-  /// Only used for testing purpose.
+  ///// Naive method to build eq(x, r).
+  ///// Only used for testing purpose.
   // Evaluate
   //      eq(x,y) = \prod_i=1^num_var (x_i * y_i + (1-x_i)*(1-y_i))
   // over r, which is
   //      eq(x,y) = \prod_i=1^num_var (x_i * r_i + (1-x_i)*(1-r_i))
-  fn build_eq_x_r_for_test<F: PrimeField>(r: &[F]) -> Arc<MultilinearPolynomial<F>> {
-    // we build eq(x,r) Fpom its evaluations
-    // we want to evaluate eq(x,r) over x \in {0, 1}^num_vars
-    // for example, with num_vars = 4, x is a binary vector of 4, then
-    //  0 0 0 0 -> (1-r0)   * (1-r1)    * (1-r2)    * (1-r3)
-    //  1 0 0 0 -> r0       * (1-r1)    * (1-r2)    * (1-r3)
-    //  0 1 0 0 -> (1-r0)   * r1        * (1-r2)    * (1-r3)
-    //  1 1 0 0 -> r0       * r1        * (1-r2)    * (1-r3)
-    //  ....
-    //  1 1 1 1 -> r0       * r1        * r2        * r3
-    // we will need 2^num_var evaluations
+  // fn build_eq_x_r_for_test<F: PrimeField>(r: &[F]) -> Arc<MultilinearPolynomial<F>> {
+  //   // we build eq(x,r) Fpom its evaluations
+  //   // we want to evaluate eq(x,r) over x \in {0, 1}^num_vars
+  //   // for example, with num_vars = 4, x is a binary vector of 4, then
+  //   //  0 0 0 0 -> (1-r0)   * (1-r1)    * (1-r2)    * (1-r3)
+  //   //  1 0 0 0 -> r0       * (1-r1)    * (1-r2)    * (1-r3)
+  //   //  0 1 0 0 -> (1-r0)   * r1        * (1-r2)    * (1-r3)
+  //   //  1 1 0 0 -> r0       * r1        * (1-r2)    * (1-r3)
+  //   //  ....
+  //   //  1 1 1 1 -> r0       * r1        * r2        * r3
+  //   // we will need 2^num_var evaluations
 
-    // First, we build array for {1 - r_i}
-    let one_minus_r: Vec<F> = r.iter().map(|ri| F::ONE - ri).collect();
+  //   // First, we build array for {1 - r_i}
+  //   let one_minus_r: Vec<F> = r.iter().map(|ri| F::ONE - ri).collect();
 
-    let num_var = r.len();
-    let mut eval = vec![];
+  //   let num_var = r.len();
+  //   let mut eval = vec![];
 
-    for i in 0..1 << num_var {
-      let mut current_eval = F::ONE;
-      let bit_sequence = bit_decompose(i, num_var);
+  //   for i in 0..1 << num_var {
+  //     let mut current_eval = F::ONE;
+  //     let bit_sequence = bit_decompose(i, num_var);
 
-      for (&bit, (ri, one_minus_ri)) in bit_sequence.iter().zip(r.iter().zip(one_minus_r.iter())) {
-        current_eval *= if bit { *ri } else { *one_minus_ri };
-      }
-      eval.push(current_eval);
-    }
+  //     for (&bit, (ri, one_minus_ri)) in bit_sequence.iter().zip(r.iter().zip(one_minus_r.iter())) {
+  //       current_eval *= if bit { *ri } else { *one_minus_ri };
+  //     }
+  //     eval.push(current_eval);
+  //   }
 
-    let mle = MultilinearPolynomial::new(eval);
+  //   let mle = MultilinearPolynomial::new(eval);
 
-    Arc::new(mle)
-  }
+  //   Arc::new(mle)
+  // }
 }
 
 #[cfg(test)]
@@ -562,32 +562,32 @@ mod tests {
     );
   }
 
-  #[test]
-  fn test_eq_x_r_equality() {
-    let mut rng = OsRng;
+  // #[test]
+  // fn test_eq_x_r_equality() {
+  //   let mut rng = OsRng;
 
-    for num_vars in 1..=3 {
-      // Generate random inputs
-      let r: Vec<Fq> = (0..num_vars).map(|_| Fq::random(&mut rng)).collect();
+  //   for num_vars in 1..=3 {
+  //     // Generate random inputs
+  //     let r: Vec<Fq> = (0..num_vars).map(|_| Fq::random(&mut rng)).collect();
 
-      // Old version of eq_x_r using `virtual_poly.rs`
-      let eq_x_r_old = build_eq_x_r(&r).unwrap().clone();
+  //     // Old version of eq_x_r using `virtual_poly.rs`
+  //     let eq_x_r_old = build_eq_x_r(&r).unwrap().clone();
 
-      // New version of eq_x_r using `polynomial.rs`
-      let eq_polynomial = EqPolynomial::new(r.to_vec());
-      let evaluations = eq_polynomial.evals();
-      let multilinear_poly = MultilinearPolynomial::new(evaluations);
-      let eq_x_r_new = Arc::new(multilinear_poly);
+  //     // New version of eq_x_r using `polynomial.rs`
+  //     let eq_polynomial = EqPolynomial::new(r.to_vec());
+  //     let evaluations = eq_polynomial.evals();
+  //     let multilinear_poly = MultilinearPolynomial::new(evaluations);
+  //     let eq_x_r_new = Arc::new(multilinear_poly);
 
-      dbg!(eq_x_r_old.Z.clone());
-      dbg!(eq_x_r_new.Z.clone());
+  //     dbg!(eq_x_r_old.Z.clone());
+  //     dbg!(eq_x_r_new.Z.clone());
 
-      // Check equality of the results
-      assert_eq!(
-        eq_x_r_old.Z, eq_x_r_new.Z,
-        "eq_x_r_old.Z and eq_x_r.Z outputs are not equal for num_vars = {}",
-        num_vars
-      );
-    }
-  }
+  //     // Check equality of the results
+  //     assert_eq!(
+  //       eq_x_r_old.Z, eq_x_r_new.Z,
+  //       "eq_x_r_old.Z and eq_x_r.Z outputs are not equal for num_vars = {}",
+  //       num_vars
+  //     );
+  //   }
+  // }
 }
