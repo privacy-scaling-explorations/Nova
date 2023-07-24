@@ -31,7 +31,7 @@ use std::ops::{Add, Mul};
 use std::sync::Arc;
 
 /// A type that holds a LCCCS instance
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct LCCCS<G: Group> {
   pub(crate) w_comm: Commitment<G>,
@@ -44,7 +44,6 @@ pub struct LCCCS<G: Group> {
 impl<G: Group> LCCCS<G> {
   /// Generates a new LCCCS instance from a given randomness, CommitmentKey & witness input vector.
   /// This should only be used to probably test or setup the initial NIMFS instance.
-  #[cfg(test)]
   pub(crate) fn new<R: RngCore>(
     ccs: &CCS<G>,
     ccs_m_mle: &[MultilinearPolynomial<G::Scalar>],

@@ -77,11 +77,11 @@ fn integration_folding_test<G: Group>() {
   let (r1cs_shape, _) = cs.r1cs_shape();
 
   let ccs = CCS::<G>::from_r1cs(r1cs_shape);
-  let mles = ccs.matrix_mles();
+
+  // Generate NIMFS object.
   let mut nimfs = NIMFS::init(
     &mut rng,
     ccs,
-    mles,
     // Note we constructed z on the fly with the previously-used witness.
     vec![
       G::Scalar::ONE,
@@ -94,7 +94,7 @@ fn integration_folding_test<G: Group>() {
   assert!(nimfs.is_sat().is_ok());
 
   // Now let's create a valid CCCS instance and fold it:
-  let valid_cccs = nimfs.gen_cccs(vec![
+  let valid_cccs = nimfs.new_cccs(vec![
     G::Scalar::ONE,
     G::Scalar::from(2u64),
     G::Scalar::from(15u64),
@@ -105,7 +105,7 @@ fn integration_folding_test<G: Group>() {
   assert!(nimfs.is_sat().is_ok());
 
   // Now let's create am invalid CCCS instance and fold it:
-  let invalid_cccs = nimfs.gen_cccs(vec![
+  let invalid_cccs = nimfs.new_cccs(vec![
     G::Scalar::ONE,
     G::Scalar::from(5u64),
     G::Scalar::from(55u64),

@@ -118,11 +118,6 @@ impl<G: Group> CCS<G> {
     }
   }
 
-  /// Returns the multilinear extension of the CCS matrixes.
-  pub fn matrix_mles(&self) -> Vec<MultilinearPolynomial<G::Scalar>> {
-    self.M.iter().map(|matrix| matrix.to_mle()).collect()
-  }
-
   /// Compute v_j values of the linearized committed CCS form
   /// Given `r`, compute:  \sum_{y \in {0,1}^s'} M_j(r, y) * z(y)
   fn compute_v_j(

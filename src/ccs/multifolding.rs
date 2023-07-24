@@ -62,12 +62,9 @@ impl<G: Group> NIMFS<G> {
   /// Initializes a NIMFS instance given the CCS of it and a first witness vector that satifies it.
   // XXX: This should probably return an error as we should check whether is satisfied or not.
   // XXX: This should not ask for the MLEs and should compute them inside.
-  pub fn init<R: RngCore>(
-    mut rng: &mut R,
-    ccs: CCS<G>,
-    ccs_mle: Vec<MultilinearPolynomial<G::Scalar>>,
-    z: Vec<G::Scalar>,
-  ) -> Self {
+  pub fn init<R: RngCore>(mut rng: &mut R, ccs: CCS<G>, z: Vec<G::Scalar>) -> Self {
+    let ccs_mle: Vec<MultilinearPolynomial<G::Scalar>> =
+      ccs.M.iter().map(|matrix| matrix.to_mle()).collect();
     let w: Vec<G::Scalar> = z[(1 + ccs.l)..].to_vec();
     let ck = ccs.commitment_key();
     let r_w = G::Scalar::random(&mut rng);
@@ -76,7 +73,7 @@ impl<G: Group> NIMFS<G> {
     let r_x: Vec<G::Scalar> = vec![G::Scalar::random(&mut rng); ccs.s];
     let v = ccs.compute_v_j(&z, &r_x, &ccs_mle);
 
-    let lcccs = LCCCS::new(&ccs, &ccs_mle, &ck, z, &mut rng);
+    let lcccs: LCCCS<G> = LCCCS::new(&ccs, &ccs_mle, &ck, z, &mut rng);
 
     Self {
       ccs,
@@ -87,7 +84,7 @@ impl<G: Group> NIMFS<G> {
   }
 
   /// Generates a new [`CCCS`] instance ready to be folded.
-  pub fn gen_cccs(&self, z: Vec<G::Scalar>) -> CCCS<G> {
+  pub fn new_cccs(&self, z: Vec<G::Scalar>) -> CCCS<G> {
     CCCS::new(&self.ccs, &self.ccs_mle, z, &self.ck)
   }
 
@@ -375,16 +372,16 @@ mod tests {
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
     // Generate a new NIMFS instance
-    let mut nimfs = NIMFS::init(&mut rng, ccs.clone(), mles.clone(), z1);
+    let mut nimfs = NIMFS::init(&mut rng, ccs.clone(), z1);
     assert!(nimfs.is_sat().is_ok());
 
     // Folding garbage should cause a failure
-    let cccs = nimfs.gen_cccs(vec![Fq::ONE, Fq::ONE, Fq::ONE]);
+    let cccs = nimfs.new_cccs(vec![Fq::ONE, Fq::ONE, Fq::ONE]);
     nimfs.fold(&mut rng, cccs);
     assert!(nimfs.is_sat().is_err());
 
     // check folding correct stuff still alows the NIMFS to be satisfied correctly.
-    let cccs = nimfs.gen_cccs(z2);
+    let cccs = nimfs.new_cccs(z2);
     assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
     nimfs.fold(&mut rng, cccs);
     assert!(nimfs.is_sat().is_ok());
