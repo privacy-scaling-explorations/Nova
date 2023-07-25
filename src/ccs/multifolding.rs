@@ -100,7 +100,7 @@ impl<G: Group> NIMFS<G> {
     ];
 
     // Gen LCCCS initial instance.
-    let lcccs: LCCCS<G> = LCCCS::new(&ccs, &ccs_mle, &ck, z, &mut rng);
+    let lcccs: LCCCS<G> = LCCCS::new(&ccs, &ccs_mle, &ck, z, r_x);
 
     Self {
       ccs,
@@ -213,10 +213,12 @@ impl<G: Group> NIMFS<G> {
   }
 
   /// This folds an upcoming CCCS instance into the running LCCCS instance contained within the NIMFS object.
-  pub fn fold<R: RngCore>(&mut self, mut rng: &mut R, cccs: CCCS<G>) {
-    // Compute r_x_prime and rho from a given randomnes.
-    let r_x_prime = vec![G::Scalar::random(&mut rng); self.ccs.s];
-    let rho = G::Scalar::random(&mut rng);
+  pub fn fold(&mut self, cccs: CCCS<G>) {
+    // Compute r_x_prime and rho from challenging the transcript.
+    let r_x_prime = self.gen_r_x();
+    // Challenge the transcript once more to obtain `rho`
+    let rho = TranscriptEngineTrait::<G>::squeeze(&mut self.transcript, b"rho")
+      .expect("This should not fail");
 
     // Compute sigmas an thetas to fold `v`s.
     let (sigmas, thetas) = self.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
