@@ -9,7 +9,6 @@ use nova_snark::{
   NovaShape, ShapeCS,
 };
 use pasta_curves::Ep;
-use rand_core::OsRng;
 
 #[derive(Clone, Debug, Default)]
 struct CubicCircuit<F: PrimeField> {
@@ -64,9 +63,6 @@ fn integration_folding() {
 }
 
 fn integration_folding_test<G: Group>() {
-  // Generate some randomness.
-  let mut rng = OsRng;
-
   let circuit = CubicCircuit::<G::Scalar>::default();
   let mut cs: ShapeCS<G> = ShapeCS::new();
   // Generate the inputs:
@@ -80,7 +76,6 @@ fn integration_folding_test<G: Group>() {
 
   // Generate NIMFS object.
   let mut nimfs = NIMFS::init(
-    &mut rng,
     ccs,
     // Note we constructed z on the fly with the previously-used witness.
     vec![

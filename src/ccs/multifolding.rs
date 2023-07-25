@@ -64,12 +64,7 @@ impl<G: Group> NIMFS<G> {
 
   /// Initializes a NIMFS instance given the CCS of it and a first witness vector that satifies it.
   // XXX: This should probably return an error as we should check whether is satisfied or not.
-  pub fn init<R: RngCore>(
-    mut rng: &mut R,
-    ccs: CCS<G>,
-    z: Vec<G::Scalar>,
-    seed: &'static [u8],
-  ) -> Self {
+  pub fn init(ccs: CCS<G>, z: Vec<G::Scalar>, seed: &'static [u8]) -> Self {
     let mut transcript: G::TE = TranscriptEngineTrait::new(seed);
     let ccs_mle: Vec<MultilinearPolynomial<G::Scalar>> =
       ccs.M.iter().map(|matrix| matrix.to_mle()).collect();
@@ -88,7 +83,7 @@ impl<G: Group> NIMFS<G> {
     TranscriptEngineTrait::<G>::absorb(&mut transcript, b"og_w", &w);
 
     let ck = ccs.commitment_key();
-    // XXX: API doesn't give a way to handle this.
+    // XXX: Pedersen commitment API doesn't give a way to handle this.
     // let r_w = G::Scalar::random(&mut rng);
     let w_comm = <G as Group>::CE::commit(&ck, &w);
 
@@ -399,8 +394,6 @@ mod tests {
   }
 
   fn test_lccs_fold_with<G: Group>() {
-    let mut rng = OsRng;
-
     let z1 = CCS::<G>::get_test_z(3);
     let z2 = CCS::<G>::get_test_z(4);
 
@@ -413,7 +406,7 @@ mod tests {
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
     // Generate a new NIMFS instance
-    let mut nimfs = NIMFS::init(&mut rng, ccs.clone(), z1, b"test_NIMFS");
+    let mut nimfs = NIMFS::init(ccs.clone(), z1, b"test_NIMFS");
     assert!(nimfs.is_sat().is_ok());
 
     // check folding correct stuff still alows the NIMFS to be satisfied correctly.
