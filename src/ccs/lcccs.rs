@@ -92,7 +92,6 @@ impl<G: Group> LCCCS<G> {
     &self,
     ccs: &CCS<G>,
     ccs_m_mle: &[MultilinearPolynomial<G::Scalar>],
-    ck: &CommitmentKey<G>,
   ) -> Vec<VirtualPolynomial<G::Scalar>> {
     let z_mle = dense_vec_to_mle(ccs.s_prime, self.z.as_slice());
 
@@ -149,7 +148,7 @@ mod tests {
     // Get LCCCS
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
 
-    let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles, &ck);
+    let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles);
     assert_eq!(vec_L_j_x.len(), lcccs.v.len());
 
     for (v_i, L_j_x) in lcccs.v.into_iter().zip(vec_L_j_x) {
@@ -179,7 +178,7 @@ mod tests {
 
     // Compute L_j(x) with the bad z
     lcccs.z = bad_z;
-    let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles, &ck);
+    let vec_L_j_x = lcccs.compute_Ls(&ccs, &mles);
     assert_eq!(vec_L_j_x.len(), lcccs.v.len());
     // Assert LCCCS is not satisfied with the bad Z
     assert!(lcccs.is_sat(&ccs, &mles, &ck).is_err());

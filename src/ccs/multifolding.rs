@@ -152,10 +152,10 @@ impl<G: Group> NIMFS<G> {
     gamma: G::Scalar,
     beta: &[G::Scalar],
   ) -> VirtualPolynomial<G::Scalar> {
-    let mut vec_L = self.lcccs.compute_Ls(&self.ccs, &self.ccs_mle, &self.ck);
+    let mut vec_L = self.lcccs.compute_Ls(&self.ccs, &self.ccs_mle);
 
     let mut Q = cccs_instance
-      .compute_Q(&self.ccs, &self.ccs_mle, &self.ck, beta)
+      .compute_Q(&self.ccs, &self.ccs_mle, beta)
       .expect("Q comp should not fail");
 
     let mut g = vec_L[0].clone();
@@ -270,7 +270,7 @@ mod tests {
 
     // evaluate sum_{j \in [t]} (gamma^j * Lj(x)) over x \in {0,1}^s
     let mut sum_Lj_on_bhc = G::Scalar::ZERO;
-    let vec_L = lcccs.compute_Ls(&ccs, &mles, &ck);
+    let vec_L = lcccs.compute_Ls(&ccs, &mles);
     for x in BooleanHypercube::new(ccs.s) {
       for (j, coeff) in vec_L.iter().enumerate() {
         let gamma_j = gamma.pow([j as u64]);
@@ -324,7 +324,7 @@ mod tests {
       }
       // evaluate sum_{j \in [t]} (gamma^j * Lj(x)) over x \in {0,1}^s
       let mut sum_Lj_on_bhc = G::Scalar::ZERO;
-      let vec_L = nimfs.lcccs.compute_Ls(&ccs, &mles, &ck);
+      let vec_L = nimfs.lcccs.compute_Ls(&ccs, &mles);
       for x in BooleanHypercube::new(ccs.s) {
         for (j, coeff) in vec_L.iter().enumerate() {
           let gamma_j = gamma.pow([j as u64]);

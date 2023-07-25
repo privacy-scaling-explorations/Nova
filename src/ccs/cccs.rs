@@ -105,7 +105,6 @@ impl<G: Group> CCCS<G> {
     &self,
     ccs: &CCS<G>,
     ccs_mles: &[MultilinearPolynomial<G::Scalar>],
-    ck: &CommitmentKey<G>,
     beta: &[G::Scalar],
   ) -> Result<VirtualPolynomial<G::Scalar>, NovaError> {
     let q = self.compute_q(ccs, ccs_mles)?;
@@ -205,7 +204,7 @@ mod tests {
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
     // Compute Q(x) = eq(beta, x) * q(x).
     let Q = cccs
-      .compute_Q(&ccs, &mles, &ck, &beta)
+      .compute_Q(&ccs, &mles, &beta)
       .expect("Computation of Q should not fail");
 
     // Let's consider the multilinear polynomial G(x) = \sum_{y \in {0, 1}^s} eq(x, y) q(y)
@@ -247,7 +246,7 @@ mod tests {
 
     for d in BooleanHypercube::new(ccs.s) {
       let Q_at_d = cccs
-        .compute_Q(&ccs, &mles, &ck, &d)
+        .compute_Q(&ccs, &mles, &d)
         .expect("Computing Q_at_d shouldn't fail");
 
       // Get G(d) by summing over Q_d(x) over the hypercube
@@ -260,7 +259,7 @@ mod tests {
     // Now test that they should disagree outside of the hypercube
     let r: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
     let Q_at_r = cccs
-      .compute_Q(&ccs, &mles, &ck, &r)
+      .compute_Q(&ccs, &mles, &r)
       .expect("Computing Q_at_r shouldn't fail");
 
     // Get G(d) by summing over Q_d(x) over the hypercube
