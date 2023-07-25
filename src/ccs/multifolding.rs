@@ -92,9 +92,11 @@ impl<G: Group> NIMFS<G> {
     self.lcccs.is_sat(&self.ccs, &self.ccs_mle, &self.ck)
   }
 
-  /// Compute sigma_i and theta_i from step 4
+  /// Compute sigma_i and theta_i from step 4.
   pub fn compute_sigmas_and_thetas(
     &self,
+    // Note `z2` represents the input of the incoming CCCS instance.
+    // As the current IVC accumulated input is holded inside of the NIMFS(`self`).
     z2: &[G::Scalar],
     r_x_prime: &[G::Scalar],
   ) -> (Vec<G::Scalar>, Vec<G::Scalar>) {
