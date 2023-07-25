@@ -88,6 +88,7 @@ fn integration_folding_test<G: Group>() {
       G::Scalar::from(3u64),
       G::Scalar::from(35u64),
     ],
+    b"test_nimfs",
   );
 
   // Now, the NIMFS should satisfy correctly as we have inputed valid starting inpuits for the first LCCCS contained instance:
@@ -99,7 +100,7 @@ fn integration_folding_test<G: Group>() {
     G::Scalar::from(2u64),
     G::Scalar::from(15u64),
   ]);
-  nimfs.fold(&mut rng, valid_cccs);
+  nimfs.fold(valid_cccs);
 
   // Since the instance was correct, the NIMFS should still be satisfied.
   assert!(nimfs.is_sat().is_ok());

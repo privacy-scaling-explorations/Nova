@@ -289,9 +289,10 @@ mod tests {
     let mut rng = OsRng;
     let gamma: G::Scalar = G::Scalar::random(&mut rng);
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
+    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut OsRng)).collect();
 
-    let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
-    let cccs = CCCS::new(&ccs, &mles, z2, &ck);
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, r_x);
+    let cccs_instance = CCCS::new(&ccs, &mles, z2, &ck);
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs.v.len() {
@@ -346,15 +347,15 @@ mod tests {
     let mut rng = OsRng;
     let gamma: G::Scalar = G::Scalar::random(&mut rng);
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
-    let r_x_prime: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
+    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut OsRng)).collect();
 
-    let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
+    let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, r_x.clone());
     let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
     // Generate a new NIMFS instance
     let nimfs = NIMFS::<G>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
-    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
+    let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, r_x.as_slice());
 
     let g = nimfs.compute_g(&cccs, gamma, &beta);
     // Assert `g` is correctly computed here.
@@ -381,7 +382,7 @@ mod tests {
 
     // XXX: We need a better way to do this. Sum_Mz has also the same issue.
     // reverse the `r` given to evaluate to match Spartan/Nova endianness.
-    let mut revsersed = r_x_prime.clone();
+    let mut revsersed = r_x.clone();
     revsersed.reverse();
 
     // we expect g(r_x_prime) to be equal to:
@@ -389,7 +390,7 @@ mod tests {
     // from `compute_c_from_sigmas_and_thetas`
     let expected_c = g.evaluate(&revsersed).unwrap();
 
-    let c = nimfs.compute_c_from_sigmas_and_thetas(&sigmas, &thetas, gamma, &beta, &r_x_prime);
+    let c = nimfs.compute_c_from_sigmas_and_thetas(&sigmas, &thetas, gamma, &beta, &r_x);
     assert_eq!(c, expected_c);
   }
 
@@ -412,13 +413,13 @@ mod tests {
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
     // Generate a new NIMFS instance
-    let mut nimfs = NIMFS::init(&mut rng, ccs.clone(), z1);
+    let mut nimfs = NIMFS::init(&mut rng, ccs.clone(), z1, b"test_NIMFS");
     assert!(nimfs.is_sat().is_ok());
 
     // check folding correct stuff still alows the NIMFS to be satisfied correctly.
     let cccs = nimfs.new_cccs(z2);
     assert!(cccs.is_sat(&ccs, &mles, &ck).is_ok());
-    nimfs.fold(&mut rng, cccs);
+    nimfs.fold(cccs);
     assert!(nimfs.is_sat().is_ok());
 
     // // Folding garbage should cause a failure
