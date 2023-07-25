@@ -237,8 +237,8 @@ mod tests {
     let z1 = CCS::<G>::get_test_z(3);
     let z2 = CCS::<G>::get_test_z(4);
 
-    let (_, ccs_witness_1, ccs_instance_1) = CCS::<G>::gen_test_ccs(&z2);
-    let (ccs, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z2);
+    let (ccs, ccs_witness_2, ccs_instance_2, _) = CCS::<G>::gen_test_ccs(&z1);
     let ck = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
@@ -252,12 +252,12 @@ mod tests {
     let cccs_instance = CCCS::new(&ccs, &mles, z2, &ck);
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
-    for j in 0..lcccs_instance.v.len() {
+    for j in 0..lcccs.v.len() {
       let gamma_j = gamma.pow([j as u64]);
       sum_v_j_gamma += lcccs.v[j] * gamma_j;
     }
 
-    let nimfs = NIMFS::<Ep>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
+    let nimfs = NIMFS::<G>::new(ccs.clone(), mles.clone(), lcccs.clone(), ck.clone());
 
     // Compute g(x) with that r_x
     let g = nimfs.compute_g(&cccs_instance, gamma, &beta);
@@ -294,8 +294,8 @@ mod tests {
     let z1 = CCS::<G>::get_test_z(3);
     let z2 = CCS::<G>::get_test_z(4);
 
-    let (_, ccs_witness_1, ccs_instance_1) = CCS::<G>::gen_test_ccs(&z2);
-    let (ccs, ccs_witness_2, ccs_instance_2) = CCS::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z2);
+    let (ccs, ccs_witness_2, ccs_instance_2, _) = CCS::<G>::gen_test_ccs(&z1);
     let ck: CommitmentKey<G> = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
@@ -310,7 +310,7 @@ mod tests {
     let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
     // Generate a new NIMFS instance
-    let nimfs = NIMFS::<Ep>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
+    let nimfs = NIMFS::<G>::new(ccs.clone(), mles.clone(), lcccs, ck.clone());
 
     let (sigmas, thetas) = nimfs.compute_sigmas_and_thetas(&cccs.z, &r_x_prime);
 
@@ -323,7 +323,7 @@ mod tests {
         g_on_bhc += g.evaluate(&x).unwrap();
       }
       // evaluate sum_{j \in [t]} (gamma^j * Lj(x)) over x \in {0,1}^s
-      let mut sum_Lj_on_bhc = G::Scalar::zero();
+      let mut sum_Lj_on_bhc = G::Scalar::ZERO;
       let vec_L = nimfs.lcccs.compute_Ls(&ccs, &mles, &ck);
       for x in BooleanHypercube::new(ccs.s) {
         for (j, coeff) in vec_L.iter().enumerate() {

@@ -182,11 +182,11 @@ mod tests {
   }
 
   fn test_compute_sum_Mz_over_boolean_hypercube_with<G: Group>() {
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, _, _, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, _, _, mles) = CCS::<G>::gen_test_ccs(&z);
 
     // Generate other artifacts
-    let ck = CCS::<Ep>::commitment_key(&ccs);
+    let ck = CCS::<G>::commitment_key(&ccs);
     let z_mle = dense_vec_to_mle(ccs.s_prime, &z);
     let cccs = CCCS::new(&ccs, &mles, z, &ck);
 
@@ -198,8 +198,7 @@ mod tests {
       for i in 0..ccs.q {
         let mut Sj_prod = G::Scalar::ONE;
         for j in ccs.S[i].clone() {
-          let sum_Mz: MultilinearPolynomial<G::Scalar> =
-            compute_sum_Mz::<G>(&cccs.M_MLE[j], &z_mle);
+          let sum_Mz: MultilinearPolynomial<G::Scalar> = compute_sum_Mz::<G>(&mles[j], &z_mle);
           let sum_Mz_x = sum_Mz.evaluate(&x);
           Sj_prod *= sum_Mz_x;
         }
@@ -210,15 +209,11 @@ mod tests {
   }
 
   fn test_compute_all_sum_Mz_evals_with<G: Group>() {
-    let z = CCSShape::<G>::get_test_z(3);
-    let (ccs, _, _) = CCSShape::<G>::gen_test_ccs(&z);
-
-    // Generate other artifacts
-    let ck = CCSShape::<G>::commitment_key(&ccs);
-    let (_, _, cccs) = ccs.to_cccs(&mut OsRng, &ck, &z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, _, _, mles) = CCS::<G>::gen_test_ccs(&z);
 
     let mut r = vec![G::Scalar::ONE, G::Scalar::ZERO];
-    let res = compute_all_sum_Mz_evals::<G>(cccs.M_MLE.as_slice(), &z, &r, ccs.s_prime);
+    let res = compute_all_sum_Mz_evals::<G>(&mles, z.as_slice(), &r, ccs.s_prime);
     assert_eq!(
       res,
       vec![
@@ -229,7 +224,7 @@ mod tests {
     );
 
     r.reverse();
-    let res = compute_all_sum_Mz_evals::<G>(cccs.M_MLE.as_slice(), &z, &r, ccs.s_prime);
+    let res = compute_all_sum_Mz_evals::<G>(&mles, z.as_slice(), &r, ccs.s_prime);
     assert_eq!(
       res,
       vec![

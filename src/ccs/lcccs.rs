@@ -120,13 +120,13 @@ mod tests {
 
   fn satisfied_ccs_is_satisfied_lcccs_with<G: Group>() {
     // Gen test vectors & artifacts
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, witness, instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, witness, instance, mles) = CCS::<G>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
     assert!(ccs.is_sat(&ck, &instance, &witness).is_ok());
 
     // LCCCS with the correct z should pass
-    let mut lcccs = LCCCS::new(&ccs, &mles, &ck, z, &mut OsRng);
+    let mut lcccs = LCCCS::new(&ccs, &mles, &ck, z.clone(), &mut OsRng);
     assert!(lcccs.is_sat(&ccs, &mles, &ck).is_ok());
 
     // Wrong z so that the relation does not hold
@@ -142,8 +142,8 @@ mod tests {
     let mut rng = OsRng;
 
     // Gen test vectors & artifacts
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, _, _, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, _, _, mles) = CCS::<G>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
 
     // Get LCCCS
@@ -164,8 +164,8 @@ mod tests {
     let mut rng = OsRng;
 
     // Gen test vectors & artifacts
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, witness, instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, witness, instance, mles) = CCS::<G>::gen_test_ccs(&z);
     let ck = ccs.commitment_key();
 
     // Mutate z so that the relation does not hold

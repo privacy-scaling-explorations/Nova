@@ -167,11 +167,11 @@ mod tests {
   fn test_compute_q_with<G: Group>() {
     let mut rng = OsRng;
 
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<G>::gen_test_ccs(&z);
 
     // generate ck
-    let ck = CCS::<Ep>::commitment_key(&ccs);
+    let ck = CCS::<G>::commitment_key(&ccs);
     // ensure CCS is satisfied
     ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
@@ -180,25 +180,23 @@ mod tests {
     let q = cccs.compute_q(&ccs, &mles).unwrap();
 
     // Evaluate inside the hypercube
-    BooleanHypercube::new(ccs_shape.s).for_each(|x| {
+    BooleanHypercube::new(ccs.s).for_each(|x| {
       assert_eq!(G::Scalar::ZERO, q.evaluate(&x).unwrap());
     });
 
     // Evaluate outside the hypercube
-    let beta: Vec<G::Scalar> = (0..ccs_shape.s)
-      .map(|_| G::Scalar::random(&mut rng))
-      .collect();
+    let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
     assert_ne!(G::Scalar::ZERO, q.evaluate(&beta).unwrap());
   }
 
   fn test_compute_Q_with<G: Group>() {
     let mut rng = OsRng;
 
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<G>::gen_test_ccs(&z);
 
     // generate ck
-    let ck = CCS::<Ep>::commitment_key(&ccs);
+    let ck = CCS::<G>::commitment_key(&ccs);
     // ensure CCS is satisfied
     ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
@@ -231,11 +229,11 @@ mod tests {
   fn test_Q_against_q_with<G: Group>() {
     let mut rng = OsRng;
 
-    let z = CCS::<Ep>::get_test_z(3);
-    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<Ep>::gen_test_ccs(&z);
+    let z = CCS::<G>::get_test_z(3);
+    let (ccs, ccs_witness, ccs_instance, mles) = CCS::<G>::gen_test_ccs(&z);
 
     // generate ck
-    let ck = CCS::<Ep>::commitment_key(&ccs);
+    let ck = CCS::<G>::commitment_key(&ccs);
     // ensure CCS is satisfied
     ccs.is_sat(&ck, &ccs_instance, &ccs_witness).unwrap();
 
