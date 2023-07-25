@@ -6,6 +6,7 @@ use crate::ccs::util::compute_all_sum_Mz_evals;
 use crate::hypercube::BooleanHypercube;
 use crate::spartan::math::Math;
 use crate::spartan::polynomial::MultilinearPolynomial;
+use crate::traits::{TranscriptEngineTrait, TranscriptReprTrait};
 use crate::{
   constants::{BN_LIMB_WIDTH, BN_N_LIMBS, NUM_FE_FOR_RO, NUM_HASH_BITS},
   errors::NovaError,
@@ -41,6 +42,7 @@ pub struct NIMFS<G: Group> {
   ccs_mle: Vec<MultilinearPolynomial<G::Scalar>>,
   ck: CommitmentKey<G>,
   lcccs: LCCCS<G>,
+  transcript: G::TE,
 }
 
 impl<G: Group> NIMFS<G> {
@@ -56,22 +58,48 @@ impl<G: Group> NIMFS<G> {
       ccs_mle,
       ck,
       lcccs,
+      transcript: TranscriptEngineTrait::new(b"NIMFS"),
     }
   }
 
   /// Initializes a NIMFS instance given the CCS of it and a first witness vector that satifies it.
   // XXX: This should probably return an error as we should check whether is satisfied or not.
-  pub fn init<R: RngCore>(mut rng: &mut R, ccs: CCS<G>, z: Vec<G::Scalar>) -> Self {
+  pub fn init<R: RngCore>(
+    mut rng: &mut R,
+    ccs: CCS<G>,
+    z: Vec<G::Scalar>,
+    seed: &'static [u8],
+  ) -> Self {
+    let mut transcript: G::TE = TranscriptEngineTrait::new(seed);
     let ccs_mle: Vec<MultilinearPolynomial<G::Scalar>> =
       ccs.M.iter().map(|matrix| matrix.to_mle()).collect();
+    // Add ccs circuit description to transcript. XXX: This does not need to be kept.
+    TranscriptEngineTrait::<G>::absorb(
+      &mut transcript,
+      b"ccs_matrixes",
+      &ccs_mle
+        .iter()
+        .flat_map(|mle| mle.Z.clone())
+        .collect::<Vec<G::Scalar>>(),
+    );
+
+    // Add the first round of witness to the transcript.
     let w: Vec<G::Scalar> = z[(1 + ccs.l)..].to_vec();
+    TranscriptEngineTrait::<G>::absorb(&mut transcript, b"og_w", &w);
+
     let ck = ccs.commitment_key();
-    let r_w = G::Scalar::random(&mut rng);
+    // XXX: API doesn't give a way to handle this.
+    // let r_w = G::Scalar::random(&mut rng);
     let w_comm = <G as Group>::CE::commit(&ck, &w);
 
-    let r_x: Vec<G::Scalar> = vec![G::Scalar::random(&mut rng); ccs.s];
-    let v = ccs.compute_v_j(&z, &r_x, &ccs_mle);
+    // Query challenge to get initial `r_x`.
+    let r_x: Vec<G::Scalar> = vec![
+      TranscriptEngineTrait::<G>::squeeze(&mut transcript, b"r_x")
+        .expect("This should never fail");
+      ccs.s
+    ];
 
+    // Gen LCCCS initial instance.
     let lcccs: LCCCS<G> = LCCCS::new(&ccs, &ccs_mle, &ck, z, &mut rng);
 
     Self {
@@ -79,12 +107,22 @@ impl<G: Group> NIMFS<G> {
       ccs_mle,
       lcccs,
       ck,
+      transcript,
     }
   }
 
   /// Generates a new [`CCCS`] instance ready to be folded.
   pub fn new_cccs(&self, z: Vec<G::Scalar>) -> CCCS<G> {
     CCCS::new(&self.ccs, &self.ccs_mle, z, &self.ck)
+  }
+
+  /// Generates a new `r_x` vector using the NIMFS challenge query method.
+  pub(crate) fn gen_r_x(&mut self) -> Vec<G::Scalar> {
+    vec![
+      TranscriptEngineTrait::<G>::squeeze(&mut self.transcript, b"r_x")
+        .expect("This should never fail");
+      self.ccs.s
+    ]
   }
 
   /// This function checks whether the current IVC after the last fold performed is satisfied and returns an error if it isn't.
