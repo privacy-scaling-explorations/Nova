@@ -150,13 +150,13 @@ impl<G: Group> NIMFS<G> {
   /// Compute g(x) polynomial for the given inputs.
   pub fn compute_g(
     &self,
-    cccs_instance: &CCCS<G>,
+    cccs: &CCCS<G>,
     gamma: G::Scalar,
     beta: &[G::Scalar],
   ) -> VirtualPolynomial<G::Scalar> {
     let mut vec_L = self.lcccs.compute_Ls(&self.ccs, &self.ccs_mle);
 
-    let mut Q = cccs_instance
+    let mut Q = cccs
       .compute_Q(&self.ccs, &self.ccs_mle, beta)
       .expect("Q comp should not fail");
 
@@ -251,7 +251,7 @@ mod tests {
     let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, &mut OsRng);
-    let cccs_instance = CCCS::new(&ccs, &mles, z2, &ck);
+    let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs.v.len() {
@@ -262,7 +262,7 @@ mod tests {
     let nimfs = NIMFS::<G>::new(ccs.clone(), mles.clone(), lcccs.clone(), ck.clone());
 
     // Compute g(x) with that r_x
-    let g = nimfs.compute_g(&cccs_instance, gamma, &beta);
+    let g = nimfs.compute_g(&cccs, gamma, &beta);
 
     // evaluate g(x) over x \in {0,1}^s
     let mut g_on_bhc = G::Scalar::ZERO;
