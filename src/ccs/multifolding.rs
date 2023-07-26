@@ -97,7 +97,7 @@ impl<G: Group> NIMFS<G> {
     &self,
     // Note `z2` represents the input of the incoming CCCS instance.
     // As the current IVC accumulated input is holded inside of the NIMFS(`self`).
-    z2: &[G::Scalar],
+    z: &[G::Scalar],
     r_x_prime: &[G::Scalar],
   ) -> (Vec<G::Scalar>, Vec<G::Scalar>) {
     (
