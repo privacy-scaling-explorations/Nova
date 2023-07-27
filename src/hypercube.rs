@@ -113,7 +113,11 @@ mod tests {
       vec![F::ONE, F::ONE, F::ONE],
     ];
 
-    for i in 0..hypercube.max as usize {
+    for (i, _) in expected_outputs
+      .iter()
+      .enumerate()
+      .take(hypercube.max as usize)
+    {
       assert_eq!(hypercube.evaluate_at_big(i), expected_outputs[i]);
     }
   }
@@ -152,7 +156,11 @@ mod tests {
       vec![F::ONE, F::ONE, F::ONE],
     ];
 
-    for i in 0..hypercube.max as usize {
+    for (i, _) in expected_outputs
+      .iter()
+      .enumerate()
+      .take(hypercube.max as usize)
+    {
       assert_eq!(hypercube.evaluate_at_little(i), expected_outputs[i]);
     }
   }
