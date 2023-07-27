@@ -29,6 +29,30 @@ use std::collections::HashMap;
 use std::ops::{Add, Mul};
 use std::sync::Arc;
 
+/// Generates a permutation vector for a size `n` by reversing binary indices.
+fn generate_permutation(n: usize) -> Vec<usize> {
+  (0..n)
+    .map(|i| {
+      let log_n = (n as f64).log2() as usize; // number of bits needed for the index
+      let mut res = 0;
+      for j in 0..log_n {
+        let bit = (i >> j) & 1;
+        res |= bit << (log_n - 1 - j);
+      }
+      res
+    })
+    .collect()
+}
+
+/// Reorders a vector based on a given permutation vector.
+fn reorder_vector<F: Clone>(vec: &mut Vec<F>, permutation: &Vec<usize>) {
+  let mut temp = vec.clone();
+  for (i, &index) in permutation.iter().enumerate() {
+    temp[i] = vec[index].clone();
+  }
+  *vec = temp;
+}
+
 // A bit of collage-programming here.
 // As a tmp way to have multilinear polynomial product+addition.
 // The idea is to re-evaluate once everything works and decide if we replace this code
@@ -317,24 +341,22 @@ impl<F: PrimeField> VirtualPolynomial<F> {
       return Err(NovaError::VpArith);
     }
 
-    // FIXME: eq_x_r_old and eq_x_r_new produce the same evals but in a different order
-    //
-    // Here's the ordering for 2^3 entries:
-    // eq_x_r_old Z: [A, B, C, D, E, F, G, H]
-    // eq_x_r_new Z: [A, E, C, G, B, F, D, H]
-    //
-    // Permutation: (1,5,3,7,2,6,4,8)
-    //
-    // This corresponds to swapped endianness of binary representation,
-    // e.g. (000, 001, 010, ...) -> (000, 100, 010, ...)
-    // See `build_eq_x_r_helper` helper below
-
     // Old version of eq_x_r using `virtual_poly.rs`
     let eq_x_r_old = build_eq_x_r(r)?;
 
     // New version of eq_x_r using `polynomial.rs`
     let eq_polynomial = EqPolynomial::new(r.to_vec());
-    let evaluations = eq_polynomial.evals();
+    let mut evaluations = eq_polynomial.evals();
+
+    // Re-orders the evaluations to match endianness of VirtualPoly
+    //
+    // NOTE: We probably want to benchmark this,
+    // but given that numbers of evaluations is small it might not be that bad
+    let n = evaluations.len();
+    let permutation = generate_permutation(n);
+    reorder_vector(&mut evaluations, &permutation);
+
+    dbg!(evaluations.clone());
     let multilinear_poly = MultilinearPolynomial::new(evaluations);
     let eq_x_r_new = Arc::new(multilinear_poly);
 
@@ -541,6 +563,21 @@ mod tests {
   use rand_core::OsRng;
 
   #[test]
+  fn test_generate_permutation() {
+    assert_eq!(generate_permutation(2), vec![0, 1]);
+    assert_eq!(generate_permutation(4), vec![0, 2, 1, 3]);
+    assert_eq!(generate_permutation(8), vec![0, 4, 2, 6, 1, 5, 3, 7]);
+  }
+
+  #[test]
+  fn test_reorder_vector() {
+    let mut vec = vec![10, 20, 30, 40, 50, 60, 70, 80];
+    let permutation = vec![0, 4, 2, 6, 1, 5, 3, 7];
+    reorder_vector(&mut vec, &permutation);
+    assert_eq!(vec, vec![10, 50, 30, 70, 20, 60, 40, 80]);
+  }
+
+  #[test]
   fn test_build_f_hat() {
     let mut rng = OsRng;
     let num_vars = 3; // You can change this value according to your requirement
@@ -575,7 +612,12 @@ mod tests {
 
       // New version of eq_x_r using `polynomial.rs`
       let eq_polynomial = EqPolynomial::new(r.to_vec());
-      let evaluations = eq_polynomial.evals();
+      let mut evaluations = eq_polynomial.evals();
+
+      let n = evaluations.len();
+      let permutation = generate_permutation(n);
+      reorder_vector(&mut evaluations, &permutation);
+
       let multilinear_poly = MultilinearPolynomial::new(evaluations);
       let eq_x_r_new = Arc::new(multilinear_poly);
 
