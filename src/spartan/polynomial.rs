@@ -46,7 +46,7 @@ impl<Scalar: PrimeField> EqPolynomial<Scalar> {
   /// Evaluates the `EqPolynomial` at all the `2^|r|` points in its domain.
   ///
   /// Returns a vector of Scalars, each corresponding to the polynomial evaluation at a specific point.
-  pub fn evals_current(&self) -> Vec<Scalar> {
+  pub fn evals(&self) -> Vec<Scalar> {
     let ell = self.r.len();
     let mut evals: Vec<Scalar> = vec![Scalar::ZERO; (2_usize).pow(ell as u32)];
     let mut size = 1;
@@ -68,48 +68,6 @@ impl<Scalar: PrimeField> EqPolynomial<Scalar> {
     }
 
     evals
-  }
-
-  // XXX: Just temporary for debugging
-  // `cargo test test_eq_x_r_equality` passes with this, but not `compute_g`
-
-  /// Evaluates the `EqPolynomial` at all the `2^|r|` points in its domain.
-  ///
-  /// Returns a vector of Scalars, each corresponding to the polynomial evaluation at a specific point.
-  pub fn evals(&self) -> Vec<Scalar> {
-    let ell = self.r.len();
-    let n = (2_usize).pow(ell as u32);
-    let mut evals: Vec<Scalar> = vec![Scalar::ZERO; n];
-    let mut res: Vec<Scalar> = vec![Scalar::ZERO; n];
-    let mut size = 1;
-    evals[0] = Scalar::ONE;
-
-    for r in self.r.iter().rev() {
-      let (evals_left, evals_right) = evals.split_at_mut(size);
-      let (evals_right, _) = evals_right.split_at_mut(size);
-
-      evals_left
-        .par_iter_mut()
-        .zip(evals_right.par_iter_mut())
-        .for_each(|(x, y)| {
-          *y = *x * r;
-          *x -= &*y;
-        });
-
-      size *= 2;
-    }
-
-    dbg!(evals.clone());
-
-    for i in 0..n {
-      let old_idx = i;
-      let new_idx = old_idx.reverse_bits() >> (std::mem::size_of::<usize>() * 8 - ell);
-      res[new_idx] = evals[old_idx].clone();
-    }
-
-    dbg!(res.clone());
-
-    res
   }
 }
 
