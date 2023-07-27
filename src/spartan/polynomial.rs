@@ -1,4 +1,9 @@
-//! This module defines basic types related to polynomials
+//! This module provides foundational types and functions for manipulating multilinear polynomials in the context of cryptographic computations.
+//!
+//! Main components:
+//! - `EqPolynomial`: Represents multilinear extension of equality polynomials, evaluated based on binary input values.
+//! - `MultilinearPolynomial`: Dense representation of multilinear polynomials, represented by evaluations over all possible binary inputs.
+//! - `SparsePolynomial`: Efficient representation of sparse multilinear polynomials, storing only non-zero evaluations.
 use core::ops::Index;
 use ff::PrimeField;
 use rayon::prelude::*;
@@ -70,8 +75,6 @@ impl<Scalar: PrimeField> EqPolynomial<Scalar> {
     evals
   }
 }
-
-// TODO Update these docs too
 
 /// A multilinear extension of a polynomial $Z(\cdot)$, denote it as $\tilde{Z}(x_1, ..., x_m)$
 /// where the degree of each variable is at most one.
