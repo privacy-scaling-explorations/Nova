@@ -287,7 +287,7 @@ mod tests {
     let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut OsRng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, r_x);
-    let cccs_instance = CCCS::new(&ccs, &mles, z2, &ck);
+    let cccs = CCCS::new(&ccs, &mles, z2, &ck);
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs.v.len() {
