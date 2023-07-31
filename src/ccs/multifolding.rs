@@ -109,7 +109,7 @@ impl<G: Group> NIMFS<G> {
         self.ccs.s_prime,
       ),
       // thetas
-      compute_all_sum_Mz_evals::<G>(&self.ccs_mle, z2, r_x_prime, self.ccs.s_prime),
+      compute_all_sum_Mz_evals::<G>(&self.ccs_mle, z, r_x_prime, self.ccs.s_prime),
     )
   }
 
