@@ -277,7 +277,6 @@ mod tests {
 
     // evaluating g(x) over the boolean hypercube should give the same result as evaluating the
     // sum of gamma^j * v_j over j \in [t]
-
     assert_eq!(g_on_bhc, sum_v_j_gamma);
   }
 

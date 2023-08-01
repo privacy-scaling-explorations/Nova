@@ -57,21 +57,6 @@ impl<Scalar: PrimeField> Iterator for BooleanHypercube<Scalar> {
       Some(point)
     }
   }
-
-  // fn next(&mut self) -> Option<Self::Item> {
-  //   if self.current >= self.max {
-  //     None
-  //   } else {
-  //     let bits = bit_decompose(self.current, self.n_vars);
-  //     let point: Vec<Scalar> = bits
-  //       .iter()
-  //       .map(|&bit| Scalar::from(bit as u64))
-  //       .rev()
-  //       .collect();
-  //     self.current += 1;
-  //     Some(point)
-  //   }
-  // }
 }
 
 /// Decompose an integer into a binary vector in little endian.
