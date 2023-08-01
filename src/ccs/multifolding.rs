@@ -124,8 +124,7 @@ impl<G: Group> NIMFS<G> {
   ) -> G::Scalar {
     let mut c = G::Scalar::ZERO;
 
-    // XXX:     let e1 = eq_eval(&self.lcccs.r_x, r_x_prime);
-    let e1 = EqPolynomial::new(r_x.to_vec()).evaluate(r_x_prime);
+    let e1 = EqPolynomial::new(self.lcccs.r_x.to_vec()).evaluate(r_x_prime);
     let e2 = EqPolynomial::new(beta.to_vec()).evaluate(r_x_prime);
 
     // (sum gamma^j * e1 * sigma_j)
