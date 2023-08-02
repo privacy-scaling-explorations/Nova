@@ -64,27 +64,16 @@ impl<G: Group> NIMFS<G> {
 
   /// Initializes a NIMFS instance given the CCS of it and a first witness vector that satifies it.
   // XXX: This should probably return an error as we should check whether is satisfied or not.
-  pub fn init(ccs: CCS<G>, z: Vec<G::Scalar>, seed: &'static [u8]) -> Self {
-    let mut transcript: G::TE = TranscriptEngineTrait::new(seed);
+  pub fn init(ccs: CCS<G>, z: Vec<G::Scalar>, label: &'static [u8]) -> Self {
+    let mut transcript: G::TE = TranscriptEngineTrait::new(label);
     let ccs_mle: Vec<MultilinearPolynomial<G::Scalar>> =
       ccs.M.iter().map(|matrix| matrix.to_mle()).collect();
-    // Add ccs circuit description to transcript. XXX: This does not need to be kept.
-    TranscriptEngineTrait::<G>::absorb(
-      &mut transcript,
-      b"ccs_matrixes",
-      &ccs_mle
-        .iter()
-        .flat_map(|mle| mle.Z.clone())
-        .collect::<Vec<G::Scalar>>(),
-    );
 
     // Add the first round of witness to the transcript.
     let w: Vec<G::Scalar> = z[(1 + ccs.l)..].to_vec();
     TranscriptEngineTrait::<G>::absorb(&mut transcript, b"og_w", &w);
 
     let ck = ccs.commitment_key();
-    // XXX: Pedersen commitment API doesn't give a way to handle this.
-    // let r_w = G::Scalar::random(&mut rng);
     let w_comm = <G as Group>::CE::commit(&ck, &w);
 
     // Query challenge to get initial `r_x`.
@@ -377,13 +366,13 @@ mod tests {
 
     // XXX: We need a better way to do this. Sum_Mz has also the same issue.
     // reverse the `r` given to evaluate to match Spartan/Nova endianness.
-    let mut revsersed = r_x.clone();
-    revsersed.reverse();
+    let mut reversed = r_x.clone();
+    reversed.reverse();
 
     // we expect g(r_x_prime) to be equal to:
     // c = (sum gamma^j * e1 * sigma_j) + gamma^{t+1} * e2 * sum c_i * prod theta_j
     // from `compute_c_from_sigmas_and_thetas`
-    let expected_c = g.evaluate(&revsersed).unwrap();
+    let expected_c = g.evaluate(&reversed).unwrap();
 
     let c = nimfs.compute_c_from_sigmas_and_thetas(&sigmas, &thetas, gamma, &beta, &r_x);
     assert_eq!(c, expected_c);
