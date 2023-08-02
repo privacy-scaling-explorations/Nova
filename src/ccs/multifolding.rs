@@ -177,7 +177,7 @@ impl<G: Group> NIMFS<G> {
   }
 
   /// Compute g(x) polynomial for the given inputs.
-  pub fn compute_g(
+  pub(crate) fn compute_g(
     &self,
     lcccs_witness: &[G::Scalar],
     cccs: &CCCS<G>,
@@ -256,6 +256,7 @@ impl<G: Group> NIMFS<G> {
     self.lcccs.w_comm += cccs.w_comm.mul(rho);
     self.lcccs.v = folded_v;
     self.lcccs.r_x = r_x_prime;
+    self.lcccs.u += rho;
   }
 
   /// Folds the current `z` vector of the upcomming CCCS instance together with the LCCCS instance that is contained inside of the NIMFS object.
@@ -287,20 +288,23 @@ mod tests {
     let z1 = CCS::<G>::get_test_z(3);
     let z2 = CCS::<G>::get_test_z(4);
 
-    let (_, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z2);
-    let (ccs, ccs_witness_2, ccs_instance_2, _) = CCS::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z1);
+    let (ccs, ccs_witness_2, ccs_instance_2, _) = CCS::<G>::gen_test_ccs(&z2);
+
     let ck = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
     let mut rng = OsRng;
-    let gamma: G::Scalar = G::Scalar::random(&mut rng);
-    let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut rng)).collect();
-    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut OsRng)).collect();
+    let gamma: G::Scalar = G::Scalar::ONE;
+    let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::ONE).collect();
+    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::ONE).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, r_x);
+    assert!(lcccs.is_sat(&ccs, &mles, &ck, &ccs_witness_1.w).is_ok());
     let cccs = CCCS::new(&ccs, &mles, z2, &ck);
+    assert!(cccs.is_sat(&ccs, &mles, &ck, &ccs_witness_2.w).is_ok());
 
     let mut sum_v_j_gamma = G::Scalar::ZERO;
     for j in 0..lcccs.v.len() {
@@ -345,8 +349,8 @@ mod tests {
     let z1 = CCS::<G>::get_test_z(3);
     let z2 = CCS::<G>::get_test_z(4);
 
-    let (_, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z2);
-    let (ccs, ccs_witness_2, ccs_instance_2, _) = CCS::<G>::gen_test_ccs(&z1);
+    let (_, ccs_witness_1, ccs_instance_1, mles) = CCS::<G>::gen_test_ccs(&z1);
+    let (ccs, ccs_witness_2, ccs_instance_2, _) = CCS::<G>::gen_test_ccs(&z2);
     let ck: CommitmentKey<G> = ccs.commitment_key();
 
     assert!(ccs.is_sat(&ck, &ccs_instance_1, &ccs_witness_1).is_ok());
