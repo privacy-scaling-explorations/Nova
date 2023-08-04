@@ -297,9 +297,9 @@ mod tests {
     assert!(ccs.is_sat(&ck, &ccs_instance_2, &ccs_witness_2).is_ok());
 
     let mut rng = OsRng;
-    let gamma: G::Scalar = G::Scalar::ONE;
-    let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::ONE).collect();
-    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::ONE).collect();
+    let gamma: G::Scalar = G::Scalar::random(&mut OsRng);
+    let beta: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut OsRng)).collect();
+    let r_x: Vec<G::Scalar> = (0..ccs.s).map(|_| G::Scalar::random(&mut OsRng)).collect();
 
     let lcccs = LCCCS::new(&ccs, &mles, &ck, z1, r_x);
     assert!(lcccs.is_sat(&ccs, &mles, &ck, &ccs_witness_1.w).is_ok());
