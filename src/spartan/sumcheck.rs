@@ -2,6 +2,7 @@
 #![allow(clippy::type_complexity)]
 use super::polynomial::MultilinearPolynomial;
 use crate::errors::NovaError;
+use crate::hypercube::BooleanHypercube;
 use crate::traits::{Group, TranscriptEngineTrait, TranscriptReprTrait};
 use core::marker::PhantomData;
 use ff::Field;
@@ -11,12 +12,56 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub(crate) struct SumcheckProof<G: Group> {
-  compressed_polys: Vec<CompressedUniPoly<G>>,
+  pub(crate) compressed_polys: Vec<CompressedUniPoly<G>>,
 }
 
 impl<G: Group> SumcheckProof<G> {
   pub fn new(compressed_polys: Vec<CompressedUniPoly<G>>) -> Self {
     Self { compressed_polys }
+  }
+
+  pub fn prove(
+    g: &MultilinearPolynomial<G::Scalar>,
+    transcript: &mut G::TE,
+  ) -> Result<(Self, G::Scalar), NovaError> {
+    let v = g.get_num_vars(); // = num_rounds
+    let mut r: Vec<G::Scalar> = Vec::new();
+    let mut polys: Vec<CompressedUniPoly<G>> = Vec::new();
+
+    let mut T = G::Scalar::ZERO; // claim
+    for x in BooleanHypercube::new(v) {
+      T += g.evaluate(&x);
+    }
+
+    let mut claim_per_round = T;
+    let mut p = g.clone();
+    for _ in 0..v {
+      let len = p.len() / 2;
+      let poly = {
+        let mut eval_point_0 = G::Scalar::ZERO;
+        let mut eval_point_2 = G::Scalar::ZERO;
+        for j in 0..len {
+          eval_point_0 += p[j];
+          eval_point_2 += p[len + j] + p[len + j] - p[j];
+        }
+        let evals = vec![eval_point_0, claim_per_round - eval_point_0, eval_point_2];
+        UniPoly::from_evals(&evals)
+      };
+
+      transcript.absorb(b"p", &poly);
+      let r_i = transcript.squeeze(b"c")?;
+      r.push(r_i);
+      polys.push(poly.compress());
+
+      claim_per_round = poly.evaluate(&r_i);
+      p.bound_poly_var_top(&r_i);
+    }
+    Ok((
+      SumcheckProof {
+        compressed_polys: polys,
+      },
+      T,
+    ))
   }
 
   pub fn verify(
@@ -337,6 +382,10 @@ impl<G: Group> UniPoly<G> {
     UniPoly { coeffs }
   }
 
+  pub fn get_coeffs(&self) -> Vec<G::Scalar> {
+    self.coeffs.clone()
+  }
+
   pub fn degree(&self) -> usize {
     self.coeffs.len() - 1
   }
@@ -395,5 +444,63 @@ impl<G: Group> TranscriptReprTrait<G> for UniPoly<G> {
   fn to_transcript_bytes(&self) -> Vec<u8> {
     let coeffs = self.compress().coeffs_except_linear_term;
     coeffs.as_slice().to_transcript_bytes()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use pasta_curves::Fq;
+  type PastaG1 = pasta_curves::pallas::Point;
+
+  fn test_sumcheck(g: MultilinearPolynomial<Fq>) {
+    let n_vars = g.get_num_vars();
+
+    // claim:
+    let mut T = Fq::ZERO;
+    for x in BooleanHypercube::new(n_vars) {
+      T += g.evaluate(&x);
+    }
+
+    // SumCheck proof
+    let mut transcript_p = <pasta_curves::Ep as Group>::TE::new(b"sumcheck");
+    let (sc_proof, claim) = SumcheckProof::<PastaG1>::prove(&g, &mut transcript_p).unwrap();
+
+    // SumCheck verification
+    let num_rounds = n_vars;
+    let degree_bound = 2;
+    let mut transcript_v = <pasta_curves::Ep as Group>::TE::new(b"sumcheck");
+    let (e, r) = sc_proof
+      .verify(claim, num_rounds, degree_bound, &mut transcript_v)
+      .unwrap();
+
+    assert_eq!(claim, T);
+    assert_eq!(e, g.evaluate(&r));
+  }
+
+  #[test]
+  fn test_prove_hardcoded_values() {
+    // g(X_0, X_1, X_2) = 2 X_0^3 + X_0 X_2 + X_1 X_2
+    let Z = vec![
+      Fq::zero(),
+      Fq::zero(),
+      Fq::zero(),
+      Fq::from(1),
+      Fq::from(2),
+      Fq::from(3),
+      Fq::from(2),
+      Fq::from(4),
+    ];
+    let g = MultilinearPolynomial::<Fq>::new(Z.clone());
+    test_sumcheck(g);
+  }
+
+  #[test]
+  fn test_prove_random_values() {
+    let rng = &mut rand::rngs::OsRng;
+    let Z: Vec<Fq> = vec![Fq::random(rng); 64];
+    let g = MultilinearPolynomial::<Fq>::new(Z.clone());
+
+    test_sumcheck(g);
   }
 }

@@ -2,4 +2,5 @@
 pub mod ecc;
 pub(crate) mod nonnative;
 pub(crate) mod r1cs;
+pub(crate) mod sumcheck;
 pub(crate) mod utils;

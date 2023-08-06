@@ -8,7 +8,7 @@ pub(crate) mod math;
 pub mod polynomial;
 pub mod ppsnark;
 pub mod snark;
-mod sumcheck;
+pub mod sumcheck;
 
 use crate::{traits::Group, Commitment};
 use ff::Field;
